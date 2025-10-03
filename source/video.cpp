@@ -477,8 +477,8 @@ static GXRModeObj * FindVideoMode()
 			break;
 	}
 
-	// check for progressive scan
-	if (mode->viTVMode == VI_TVMODE_NTSC_PROG || VI_TVMODE_PAL_PROG)
+	// check for progressive scan (fixed logic: prior code always evaluated true due to bare constant)
+	if (mode->viTVMode == VI_TVMODE_NTSC_PROG || mode->viTVMode == VI_TVMODE_PAL_PROG)
 		progressive = true;
 	else
 		progressive = false;
@@ -629,8 +629,9 @@ ResetVideo_Emu ()
 	{
 		rmode = tvmodes[i];
 
-		// hack to fix video output for hq2x (only when actually filtering; h<=239, w<=256)
-		if (GCSettings.FilterMethod != FILTER_NONE && vheight <= 239 && vwidth <= 256)
+		// hack to fix video output for interpolation filters that produce a 2x surface (hq2x/scale variants)
+		// TV Mode (scanlines) renders a 2x internal surface itself; do NOT apply doubling hack for FILTER_TVMODE
+		if (GCSettings.FilterMethod != FILTER_NONE && GCSettings.FilterMethod != FILTER_TVMODE && vheight <= 239 && vwidth <= 256)
 		{
 			memcpy(&TV_Custom, tvmodes[i], sizeof(TV_Custom));
 			rmode = &TV_Custom;
@@ -746,6 +747,13 @@ MakeTexture (const void *src, void *dst, s32 width, s32 height)
 uint32 prevRenderedFrameCount = 0;
 int fscale = 1;
 
+// Optional lightweight debug logging (define DEBUG_VIDEO in build flags to enable)
+#ifdef DEBUG_VIDEO
+#define VLOG(fmt, ...) printf("[VIDEO] " fmt "\n", ##__VA_ARGS__)
+#else
+#define VLOG(fmt, ...)
+#endif
+
 void
 update_video (int width, int height)
 {
@@ -767,16 +775,15 @@ update_video (int width, int height)
 	if (CheckVideo)	// if we get back from the menu, and have rendered at least 1 frame
 	{
 		int xscale, yscale;
-#ifdef HW_RVL
-		if(vwidth <= 256)
-			fscale = GetFilterScale((RenderFilter)GCSettings.FilterMethod);
-		else
-			fscale = 1;
-#endif
+	// Allow filters (eg. TV Mode scanlines) on both Wii (HW_RVL) and GameCube (HW_DOL)
+	// Previously this was Wii-only. GameCube performance is sufficient for TV Mode (lightweight) and simple 2x filters.
+	if(vwidth <= 256)
+		fscale = GetFilterScale((RenderFilter)GCSettings.FilterMethod);
+	else
+		fscale = 1;
 		ResetVideo_Emu ();	// reset video to emulator rendering settings
-#ifdef HW_RVL
+		// Clear filter buffer (used now on Wii and GameCube)
 		memset(filtermem, 0, FILTERMEM_SIZE);
-#endif
 		/** Update scaling **/
 		if (GCSettings.render == 0)	// original render mode
 		{
@@ -832,15 +839,22 @@ update_video (int width, int height)
 		oldvheight = vheight;
 		CheckVideo = 0;
 	}
-#ifdef HW_RVL
-	// convert image to texture
-	if (GCSettings.FilterMethod != FILTER_NONE && vheight <= 239 && vwidth <= 256)	// don't do filtering on game textures > 256 x 239
+	// convert image to texture (filters now enabled for GameCube as well)
+	if (GCSettings.FilterMethod != FILTER_NONE && vheight <= 239 && vwidth <= 256) // don't do filtering on game textures > 256 x 239
+	{
+		if(!FilterMethod) // safety: prefs could have loaded unsupported filter on this platform
+		{
+			VLOG("Null FilterMethod encountered; falling back to NONE (id=%d)", GCSettings.FilterMethod);
+			GCSettings.FilterMethod = FILTER_NONE;
+			fscale = 1;
+		}
+	}
+	if (GCSettings.FilterMethod != FILTER_NONE && vheight <= 239 && vwidth <= 256 && FilterMethod)
 	{
 		FilterMethod ((uint8*) GFX.Screen, EXT_PITCH, (uint8*) filtermem, vwidth*fscale*2, vwidth, vheight);
 		MakeTexture565((char *) filtermem, (char *) texturemem, vwidth*fscale, vheight*fscale);
 	}
 	else
-#endif
 	{
 		MakeTexture((char *) GFX.Screen, (char *) texturemem, vwidth, vheight);
 	}
@@ -886,10 +900,9 @@ void AllocGfxMem()
 	snes9xgfx = (unsigned char *)memalign(32, SNES9XGFX_SIZE);
 	memset(snes9xgfx, 0, SNES9XGFX_SIZE);
 
-#ifdef HW_RVL
+	// Allocate filter buffer for both Wii and GameCube (was Wii-only)
 	filtermem = (unsigned char *)memalign(32, FILTERMEM_SIZE);
 	memset(filtermem, 0, FILTERMEM_SIZE);
-#endif
 
 	GFX.Pitch = EXT_PITCH;
 	GFX.Screen = (uint16*)(snes9xgfx + EXT_OFFSET);
