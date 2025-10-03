@@ -42,12 +42,12 @@ unsigned char * filtermem = NULL; // only want ((512*2) X (239*2))
 
 /*** 2D Video ***/
 static u32 *xfb[2] = { NULL, NULL }; // Double buffered
-static int whichfb = 0; // Switch
+static volatile int whichfb = 0; // Switch (accessed from render and menu threads)
 GXRModeObj *vmode = NULL; // Current video mode
 int screenheight = 480;
 int screenwidth = 640;
 static int oldRenderMode = -1; // set to GCSettings.render when changing (temporarily) to another mode
-int CheckVideo = 0; // for forcing video reset
+volatile int CheckVideo = 0; // for forcing video reset (menu thread sets, render thread reads)
 
 /*** GX ***/
 #define TEX_WIDTH 512
@@ -56,7 +56,7 @@ int CheckVideo = 0; // for forcing video reset
 static unsigned char texturemem[TEXTUREMEM_SIZE] ATTRIBUTE_ALIGN (32);
 
 #define DEFAULT_FIFO_SIZE 256 * 1024
-static unsigned int copynow = GX_FALSE;
+static volatile unsigned int copynow = GX_FALSE; // touched by retrace callback and render loop
 static unsigned char gp_fifo[DEFAULT_FIFO_SIZE] ATTRIBUTE_ALIGN (32);
 static GXTexObj texobj;
 static Mtx view;
@@ -66,7 +66,7 @@ static int vwidth, vheight, oldvwidth, oldvheight;
 u8 * gameScreenPng = NULL;
 int gameScreenPngSize = 0;
 
-u32 FrameTimer = 0;
+volatile u32 FrameTimer = 0; // incremented in retrace callback, read by other threads
 
 bool vmode_60hz = true;
 int timerstyle = 0;
@@ -760,6 +760,9 @@ update_video (int width, int height)
 	vwidth = width;
 	vheight = height;
 
+	// Snapshot of filter selection to minimize races with menu thread updates
+	int filterIdLocal = GCSettings.FilterMethod;
+
 	if(CheckVideo == 2 && IPPU.RenderedFramesCount == prevRenderedFrameCount)
 		return; // we haven't rendered any frames yet, so we can't draw anything!
 
@@ -778,7 +781,7 @@ update_video (int width, int height)
 	// Allow filters (eg. TV Mode scanlines) on both Wii (HW_RVL) and GameCube (HW_DOL)
 	// Previously this was Wii-only. GameCube performance is sufficient for TV Mode (lightweight) and simple 2x filters.
 	if(vwidth <= 256)
-		fscale = GetFilterScale((RenderFilter)GCSettings.FilterMethod);
+		fscale = GetFilterScale((RenderFilter)filterIdLocal);
 	else
 		fscale = 1;
 		ResetVideo_Emu ();	// reset video to emulator rendering settings
@@ -787,7 +790,7 @@ update_video (int width, int height)
 		/** Update scaling **/
 		if (GCSettings.render == 0)	// original render mode
 		{
-			if (GCSettings.FilterMethod != FILTER_NONE && vheight <= 239 && vwidth <= 256)
+			if (filterIdLocal != FILTER_NONE && vheight <= 239 && vwidth <= 256)
 			{	// filters; normal operation
 				xscale = vwidth;
 				yscale = vheight;
@@ -840,7 +843,7 @@ update_video (int width, int height)
 		CheckVideo = 0;
 	}
 	// convert image to texture (filters now enabled for GameCube as well)
-	if (GCSettings.FilterMethod != FILTER_NONE && vheight <= 239 && vwidth <= 256) // don't do filtering on game textures > 256 x 239
+	if (filterIdLocal != FILTER_NONE && vheight <= 239 && vwidth <= 256) // don't do filtering on game textures > 256 x 239
 	{
 		if(!FilterMethod) // safety: prefs could have loaded unsupported filter on this platform
 		{
@@ -849,9 +852,12 @@ update_video (int width, int height)
 			fscale = 1;
 		}
 	}
-	if (GCSettings.FilterMethod != FILTER_NONE && vheight <= 239 && vwidth <= 256 && FilterMethod)
+	if (filterIdLocal != FILTER_NONE && vheight <= 239 && vwidth <= 256 && FilterMethod)
 	{
-		FilterMethod ((uint8*) GFX.Screen, EXT_PITCH, (uint8*) filtermem, vwidth*fscale*2, vwidth, vheight);
+		// Copy function pointer locally to avoid race if changed by menu thread
+		TFilterMethod fm = FilterMethod;
+		if (fm)
+			fm ((uint8*) GFX.Screen, EXT_PITCH, (uint8*) filtermem, vwidth*fscale*2, vwidth, vheight);
 		MakeTexture565((char *) filtermem, (char *) texturemem, vwidth*fscale, vheight*fscale);
 	}
 	else
