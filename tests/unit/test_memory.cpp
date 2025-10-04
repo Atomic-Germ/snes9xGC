@@ -45,12 +45,17 @@ bool TestMemoryAlignment(void* ptr, size_t alignment) {
 bool TestSafeBufferCopy(void* dest, size_t destSize, const void* src, size_t srcSize) {
     if (!dest || !src || destSize == 0) return false;
     
-    size_t copySize = (srcSize < destSize) ? srcSize : destSize;
+    // For string operations, reserve space for null terminator
+    size_t maxCopySize = destSize - 1;
+    size_t copySize = (srcSize < maxCopySize) ? srcSize : maxCopySize;
     memcpy(dest, src, copySize);
     
+    // Always null-terminate for string operations
+    ((char*)dest)[copySize] = '\0';
+    
     // Clear remaining space if dest is larger
-    if (copySize < destSize) {
-        memset((char*)dest + copySize, 0, destSize - copySize);
+    if (copySize + 1 < destSize) {
+        memset((char*)dest + copySize + 1, 0, destSize - copySize - 1);
     }
     
     return true;
