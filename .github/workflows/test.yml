@@ -1,10 +1,10 @@
-name: CI Tests
+name: Unit Tests
 
 on:
   push:
     branches: [ all ]
   pull_request:
-    branches: [ master, develop ]
+    branches: [ master ]
 
 jobs:
   unit-tests:
@@ -16,10 +16,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup build dependencies
+    - name: Install packages
       run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential g++ cmake
+        sudo dkp-pacman-key --recv-keys C8A2759C315CFBC3429CC2E422B803BA8AA3D7CE --keyserver keyserver.ubuntu.com
+        sudo dkp-pacman-key --lsign-key C8A2759C315CFBC3429CC2E422B803BA8AA3D7CE
+        sudo sed -i '/^\[dkp-libs\]$/,$d' /opt/devkitpro/pacman/etc/pacman.conf
+        sudo echo -e '[extremscorner-devkitpro]\nServer = https://packages.extremscorner.org/devkitpro/linux/$arch' >> /opt/devkitpro/pacman/etc/pacman.conf
+        sudo dkp-pacman -Sy
+        sudo dkp-pacman -S --noconfirm --ask 4 gamecube-tools-git libogc2 libogc2-libdvm
         
     - name: Build unit tests
       run: |
