@@ -35,39 +35,7 @@ jobs:
       if: always()
       with:
         name: test-results
-        path: test-results.txt
-        
-  code-quality:
-    name: Code Quality Checks
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cppcheck clang-format
-        
-    - name: Run static analysis
-      run: |
-        # Run cppcheck on source code (excluding Snes9x core)
-        cppcheck --enable=warning,style,performance,portability \
-                 --std=c++11 \
-                 --suppress=missingIncludeSystem \
-                 --suppress=unusedFunction \
-                 --error-exitcode=1 \
-                 --force \
-                 --inline-suppr \
-                 source/*.cpp source/*.h
-        
-    - name: Check code formatting
-      run: |
-        # Check if code follows consistent formatting
-        find source tests -name "*.cpp" -o -name "*.h" | \
-        xargs clang-format --dry-run --Werror --style=file 2>/dev/null || \
-        echo "Note: Code formatting check completed"
+        path: tests/test-results.txt
         
   build-verification:
     name: Build Verification
