@@ -2,9 +2,9 @@ name: CI Tests
 
 on:
   push:
-    branches: [ main, master, develop, unit-tests ]
+    branches: [ master, develop ]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ master, develop ]
 
 jobs:
   unit-tests:
@@ -37,98 +37,113 @@ jobs:
         name: test-results
         path: tests/test-results.txt
         
-  build-verification:
-    name: Build Verification
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    container: devkitpro/devkitppc:latest
-    continue-on-error: true  # Don't fail CI if builds have warnings/errors
+    needs: [unit-tests]
     strategy:
       matrix:
-        target: ["wii", "gc"]
-        include:
-          - target: "wii"
-            name: "Wii"
-          - target: "gc" 
-            name: "GameCube"
-    
+        image: ["Wii", "GameCube"]
+    container: devkitpro/devkitppc:latest
+
     steps:
-    - name: Checkout code
+    - name: Install packages
+      run: |
+        sudo dkp-pacman-key --recv-keys C8A2759C315CFBC3429CC2E422B803BA8AA3D7CE --keyserver keyserver.ubuntu.com
+        sudo dkp-pacman-key --lsign-key C8A2759C315CFBC3429CC2E422B803BA8AA3D7CE
+        sudo sed -i '/^\[dkp-libs\]$/,$d' /opt/devkitpro/pacman/etc/pacman.conf
+        sudo echo -e '[extremscorner-devkitpro]\nServer = https://packages.extremscorner.org/devkitpro/linux/$arch' >> /opt/devkitpro/pacman/etc/pacman.conf
+        sudo dkp-pacman -Sy
+        sudo dkp-pacman -S --noconfirm --ask 4 gamecube-tools-git libogc2 libogc2-libdvm
+    
+    - name: Checkout snes9xgx repo
       uses: actions/checkout@v4
-        
-    - name: Install additional dependencies
-      run: |
-        # Update package database
-        echo "Updating package database..."
-        dkp-pacman -Sy --noconfirm
-        
-        # List available packages to debug
-        echo "Available PPC packages:"
-        dkp-pacman -Ss ppc- | head -20 || echo "Could not list packages"
-        
-        # Install core portlibs needed for Snes9x GX
-        echo "Installing required libraries..."
-        dkp-pacman -S --noconfirm \
-          ppc-freetype \
-          ppc-libpng \
-          ppc-zlib \
-          || echo "Some core packages failed to install"
-          
-        # Install additional libraries (these might fail on some versions)
-        dkp-pacman -S --noconfirm \
-          ppc-mxml \
-          ppc-libfat-ogc \
-          ppc-libogg \
-          ppc-libvorbisidec \
-          || echo "Some optional packages failed to install, continuing anyway"
-        
-    - name: Verify ${{ matrix.name }} build compiles
-      run: |
-        # Check if DevKitPro is properly set up
-        echo "=== DevKitPro Environment Check ==="
-        echo "DEVKITPRO: $DEVKITPRO"
-        echo "DEVKITPPC: $DEVKITPPC"
-        echo "PATH: $PATH"
-        
-        # Check directory structure
-        echo "=== Directory Structure ==="
-        ls -la /opt/devkitpro/ 2>/dev/null || echo "DevKitPro not found in /opt/devkitpro"
-        ls -la /opt/devkitpro/devkitPPC/bin/ 2>/dev/null || echo "DevKitPPC bin not found"
-        
-        # Try to locate the PPC toolchain
-        echo "=== Toolchain Check ==="
-        which powerpc-eabi-gcc || echo "powerpc-eabi-gcc not found in PATH"
-        powerpc-eabi-gcc --version 2>/dev/null || echo "Could not run powerpc-eabi-gcc"
-        
-        # Check project structure
-        echo "=== Project Structure ==="
-        ls -la . || echo "Could not list current directory"
-        ls -la Makefile* || echo "Could not find Makefiles"
-        
-        # Clean first (allow clean to fail gracefully)
-        echo "=== Cleaning Previous Build ==="
-        make ${{ matrix.target }}-clean 2>/dev/null || echo "Clean target may not exist or failed"
-        
-        # Attempt build with detailed error reporting
-        echo "=== Starting ${{ matrix.name }} Build ==="
-        set +e  # Don't exit on error
-        make ${{ matrix.target }} 2>&1 | tee build-${{ matrix.target }}.log
-        BUILD_EXIT_CODE=$?
-        set -e  # Re-enable exit on error
-        
-        echo "=== Build Result ==="
-        if [ $BUILD_EXIT_CODE -eq 0 ]; then
-          echo "${{ matrix.name }} build completed successfully"
-        else
-          echo "${{ matrix.name }} build failed with exit code $BUILD_EXIT_CODE"
-          echo "Check the build log for details"
-        fi
-        
-        # Always continue for artifact collection
-        exit 0
-        
-    - name: Upload build logs
-      uses: actions/upload-artifact@v4
-      if: always()
       with:
-        name: build-logs-${{ matrix.target }}
-        path: build-${{ matrix.target }}.log
+        fetch-depth: 0
+
+    - name: Build Wii
+      if: ${{ matrix.image == 'Wii' }}
+      run: |
+        make -f Makefile.wii -j2
+
+    - name: Copy Wii artifacts
+      if: ${{ matrix.image == 'Wii' }}
+      run: |
+        mkdir -p dist/Snes9xGX/apps/snes9xgx
+        mkdir -p dist/Snes9xGX/snes9xgx/roms
+        mkdir dist/Snes9xGX/snes9xgx/cheats
+        mkdir dist/Snes9xGX/snes9xgx/saves
+        touch dist/Snes9xGX/snes9xgx/roms/romsdir
+        touch dist/Snes9xGX/snes9xgx/cheats/cheatsdir
+        touch dist/Snes9xGX/snes9xgx/saves/savesdir
+        cp hbc/* dist/Snes9xGX/apps/snes9xgx/
+        cp executables/snes9xgx-wii.dol dist/Snes9xGX/apps/snes9xgx/boot.dol
+
+    - name: Upload Wii artifacts
+      uses: actions/upload-artifact@v4
+      if: ${{ matrix.image == 'Wii' }}
+      with:
+        name: Snes9xGX
+        path: |
+          dist/Snes9xGX/
+
+    - name: Build GameCube
+      if: ${{ matrix.image == 'GameCube' }}
+      run: |
+        make -f Makefile.gc -j2
+
+    - name: Copy GameCube artifact
+      if: ${{ matrix.image == 'GameCube' }}
+      run: |
+        mkdir -p dist/Snes9xGX-GameCube
+        cp executables/snes9xgx-gc.dol dist/Snes9xGX-GameCube/
+
+    - name: Upload GameCube artifact
+      uses: actions/upload-artifact@v4
+      if: ${{ matrix.image == 'GameCube' }}
+      with:
+        name: Snes9xGX-GameCube
+        path: |
+          dist/Snes9xGX-GameCube/
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+    - name: Checkout snes9xgx repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: dist
+
+    - name: Re-zip artifacts
+      run: |
+        cd dist/Snes9xGX
+        rm -r snes9xgx/cheats/*
+        rm -r snes9xgx/roms/*
+        rm -r snes9xgx/saves/*
+        zip -r ../Snes9xGX.zip *
+        cd ../Snes9xGX-GameCube
+        zip -r ../Snes9xGX-GameCube.zip *
+
+    - name: Update Git Tag
+      run: |
+        git tag -f Pre-release
+        git push -f origin Pre-release
+
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        prerelease: true
+        allowUpdates: true
+        removeArtifacts: true
+        replacesArtifacts: false
+        tag: Pre-release
+        artifacts: "dist/*.zip"
