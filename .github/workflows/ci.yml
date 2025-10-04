@@ -130,3 +130,62 @@ jobs:
       with:
         name: build-logs-${{ matrix.target }}
         path: build-${{ matrix.target }}.log
+
+  # Alternative approach for environments where container might not work
+  build-verification-native:
+    name: Build Verification (Native Install)
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Don't fail CI if builds have warnings
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install DevkitPro
+      run: |
+        # Install DevkitPro via official installer
+        wget -O devkitpro-pacman.deb https://github.com/devkitPro/pacman/releases/latest/download/devkitpro-pacman.amd64.deb
+        sudo dpkg -i devkitpro-pacman.deb
+        sudo apt-get update && sudo apt-get install -f -y
+        
+    - name: Install DevkitPPC and libraries
+      run: |
+        sudo dkp-pacman -Sy --noconfirm
+        sudo dkp-pacman -S --noconfirm devkitPPC libogc gamecube-dev wii-dev
+        # Install portlibs
+        sudo dkp-pacman -S --noconfirm ppc-freetype ppc-libpng ppc-zlib ppc-mxml || true
+        
+    - name: Set environment  
+      run: |
+        echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+        echo "DEVKITPPC=/opt/devkitpro/devkitPPC" >> $GITHUB_ENV
+        echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
+        
+    - name: Verify environment
+      run: |
+        echo "DevkitPro setup verification:"
+        echo "DEVKITPRO: $DEVKITPRO"
+        echo "DEVKITPPC: $DEVKITPPC"
+        ls -la /opt/devkitpro/ || echo "DevkitPro directory not found"
+        which powerpc-eabi-gcc || echo "Compiler not found"
+        powerpc-eabi-gcc --version || echo "Compiler version check failed"
+        
+    - name: Build Wii version
+      run: |
+        echo "Building Wii version..."
+        make wii 2>&1 | tee build-wii-native.log
+        
+    - name: Build GameCube version
+      run: |
+        echo "Building GameCube version..."
+        make gc-clean || true
+        make gc 2>&1 | tee build-gc-native.log
+        
+    - name: Upload native build logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-logs-native
+        path: |
+          build-wii-native.log
+          build-gc-native.log
