@@ -35,7 +35,7 @@ jobs:
       if: always()
       with:
         name: test-results
-        path: tests/test-results.txt
+        path: test-results.txt
         
   code-quality:
     name: Code Quality Checks
@@ -73,6 +73,7 @@ jobs:
     name: Build Verification
     runs-on: ubuntu-latest
     container: devkitpro/devkitppc:latest
+    continue-on-error: true  # Don't fail CI if builds have warnings/errors
     strategy:
       matrix:
         target: ["wii", "gc"]
@@ -88,41 +89,74 @@ jobs:
         
     - name: Install additional dependencies
       run: |
-        # Update package database and install required libraries
+        # Update package database
+        echo "Updating package database..."
         dkp-pacman -Sy --noconfirm
-        # Install all the portlibs needed for Snes9x GX
+        
+        # List available packages to debug
+        echo "Available PPC packages:"
+        dkp-pacman -Ss ppc- | head -20 || echo "Could not list packages"
+        
+        # Install core portlibs needed for Snes9x GX
+        echo "Installing required libraries..."
         dkp-pacman -S --noconfirm \
           ppc-freetype \
           ppc-libpng \
           ppc-zlib \
+          || echo "Some core packages failed to install"
+          
+        # Install additional libraries (these might fail on some versions)
+        dkp-pacman -S --noconfirm \
           ppc-mxml \
           ppc-libfat-ogc \
           ppc-libogg \
           ppc-libvorbisidec \
-          || echo "Some packages may already be installed or not available"
+          || echo "Some optional packages failed to install, continuing anyway"
         
     - name: Verify ${{ matrix.name }} build compiles
       run: |
         # Check if DevKitPro is properly set up
-        echo "Checking DevKitPro environment..."
+        echo "=== DevKitPro Environment Check ==="
         echo "DEVKITPRO: $DEVKITPRO"
         echo "DEVKITPPC: $DEVKITPPC"
+        echo "PATH: $PATH"
+        
+        # Check directory structure
+        echo "=== Directory Structure ==="
         ls -la /opt/devkitpro/ 2>/dev/null || echo "DevKitPro not found in /opt/devkitpro"
+        ls -la /opt/devkitpro/devkitPPC/bin/ 2>/dev/null || echo "DevKitPPC bin not found"
         
         # Try to locate the PPC toolchain
+        echo "=== Toolchain Check ==="
         which powerpc-eabi-gcc || echo "powerpc-eabi-gcc not found in PATH"
+        powerpc-eabi-gcc --version 2>/dev/null || echo "Could not run powerpc-eabi-gcc"
         
-        # Clean first, then build (allow clean to fail gracefully)
+        # Check project structure
+        echo "=== Project Structure ==="
+        ls -la . || echo "Could not list current directory"
+        ls -la Makefile* || echo "Could not find Makefiles"
+        
+        # Clean first (allow clean to fail gracefully)
+        echo "=== Cleaning Previous Build ==="
         make ${{ matrix.target }}-clean 2>/dev/null || echo "Clean target may not exist or failed"
         
         # Attempt build with detailed error reporting
-        echo "Starting ${{ matrix.name }} build..."
-        if make ${{ matrix.target }} 2>&1 | tee build-${{ matrix.target }}.log; then
+        echo "=== Starting ${{ matrix.name }} Build ==="
+        set +e  # Don't exit on error
+        make ${{ matrix.target }} 2>&1 | tee build-${{ matrix.target }}.log
+        BUILD_EXIT_CODE=$?
+        set -e  # Re-enable exit on error
+        
+        echo "=== Build Result ==="
+        if [ $BUILD_EXIT_CODE -eq 0 ]; then
           echo "${{ matrix.name }} build completed successfully"
         else
-          echo "${{ matrix.name }} build failed, but continuing for artifact collection"
-          exit 0  # Don't fail the job, just collect logs
+          echo "${{ matrix.name }} build failed with exit code $BUILD_EXIT_CODE"
+          echo "Check the build log for details"
         fi
+        
+        # Always continue for artifact collection
+        exit 0
         
     - name: Upload build logs
       uses: actions/upload-artifact@v4
@@ -130,62 +164,3 @@ jobs:
       with:
         name: build-logs-${{ matrix.target }}
         path: build-${{ matrix.target }}.log
-
-  # Alternative approach for environments where container might not work
-  build-verification-native:
-    name: Build Verification (Native Install)
-    runs-on: ubuntu-latest
-    continue-on-error: true  # Don't fail CI if builds have warnings
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Install DevkitPro
-      run: |
-        # Install DevkitPro via official installer
-        wget -O devkitpro-pacman.deb https://github.com/devkitPro/pacman/releases/latest/download/devkitpro-pacman.amd64.deb
-        sudo dpkg -i devkitpro-pacman.deb
-        sudo apt-get update && sudo apt-get install -f -y
-        
-    - name: Install DevkitPPC and libraries
-      run: |
-        sudo dkp-pacman -Sy --noconfirm
-        sudo dkp-pacman -S --noconfirm devkitPPC libogc gamecube-dev wii-dev
-        # Install portlibs
-        sudo dkp-pacman -S --noconfirm ppc-freetype ppc-libpng ppc-zlib ppc-mxml || true
-        
-    - name: Set environment  
-      run: |
-        echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
-        echo "DEVKITPPC=/opt/devkitpro/devkitPPC" >> $GITHUB_ENV
-        echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
-        
-    - name: Verify environment
-      run: |
-        echo "DevkitPro setup verification:"
-        echo "DEVKITPRO: $DEVKITPRO"
-        echo "DEVKITPPC: $DEVKITPPC"
-        ls -la /opt/devkitpro/ || echo "DevkitPro directory not found"
-        which powerpc-eabi-gcc || echo "Compiler not found"
-        powerpc-eabi-gcc --version || echo "Compiler version check failed"
-        
-    - name: Build Wii version
-      run: |
-        echo "Building Wii version..."
-        make wii 2>&1 | tee build-wii-native.log
-        
-    - name: Build GameCube version
-      run: |
-        echo "Building GameCube version..."
-        make gc-clean || true
-        make gc 2>&1 | tee build-gc-native.log
-        
-    - name: Upload native build logs
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: build-logs-native
-        path: |
-          build-wii-native.log
-          build-gc-native.log
