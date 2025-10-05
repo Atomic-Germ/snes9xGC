@@ -73,26 +73,6 @@ extern void __exception_setreload(int t);
 extern void S9xInitSync();
 extern uint32 prevRenderedFrameCount;
 
-// SuperFX overclock speed lookup table - replaces switch statement
-static const double sfxSpeedTable[] = {
-	5823405,            // case 0: Default
-	0.417 * 20.5e6,     // case 1: 20 MHz
-	0.417 * 40.5e6,     // case 2: 40 MHz
-	0.417 * 60.5e6,     // case 3: 60 MHz
-	0.417 * 80.5e6,     // case 4: 80 MHz
-	0.417 * 100.5e6,    // case 5: 100 MHz
-	0.417 * 120.5e6     // case 6: 120 MHz
-};
-
-// DSP interpolation method lookup table - replaces switch statement
-static const int interpolationTable[] = {
-	DSP_INTERPOLATION_GAUSSIAN,  // case 0: Gaussian
-	DSP_INTERPOLATION_LINEAR,    // case 1: Linear
-	DSP_INTERPOLATION_CUBIC,     // case 2: Cubic
-	DSP_INTERPOLATION_SINC,      // case 3: Sinc
-	DSP_INTERPOLATION_NONE       // case 4: None
-};
-
 /****************************************************************************
  * Shutdown / Reboot / Exit
  ***************************************************************************/
@@ -520,24 +500,29 @@ int main(int argc, char *argv[])
 		if (firstRun)
 		{
 			firstRun = false;
-			
-			// Set SuperFX speed using lookup table
-			const int numSpeeds = sizeof(sfxSpeedTable) / sizeof(sfxSpeedTable[0]);
-			if (GCSettings.sfxOverclock >= 0 && GCSettings.sfxOverclock < numSpeeds)
-				Settings.SuperFXSpeedPerLine = sfxSpeedTable[GCSettings.sfxOverclock];
-			else
-				Settings.SuperFXSpeedPerLine = sfxSpeedTable[0];
+			switch (GCSettings.sfxOverclock)
+			{
+				case 0: Settings.SuperFXSpeedPerLine = 5823405; break;
+				case 1: Settings.SuperFXSpeedPerLine = 0.417 * 20.5e6; break;
+				case 2: Settings.SuperFXSpeedPerLine = 0.417 * 40.5e6; break;
+				case 3: Settings.SuperFXSpeedPerLine = 0.417 * 60.5e6; break;
+				case 4: Settings.SuperFXSpeedPerLine = 0.417 * 80.5e6; break;
+				case 5: Settings.SuperFXSpeedPerLine = 0.417 * 100.5e6; break;
+				case 6: Settings.SuperFXSpeedPerLine = 0.417 * 120.5e6; break;
+			}
 
 			if (GCSettings.sfxOverclock > 0)
 			S9xResetSuperFX();
 			S9xReset();
 
-			// Set interpolation method using lookup table
-			const int numMethods = sizeof(interpolationTable) / sizeof(interpolationTable[0]);
-			if (GCSettings.Interpolation >= 0 && GCSettings.Interpolation < numMethods)
-				Settings.InterpolationMethod = interpolationTable[GCSettings.Interpolation];
-			else
-				Settings.InterpolationMethod = interpolationTable[0];
+			switch (GCSettings.Interpolation)
+			{
+			case 0: Settings.InterpolationMethod = DSP_INTERPOLATION_GAUSSIAN; break;
+			case 1: Settings.InterpolationMethod = DSP_INTERPOLATION_LINEAR; break;
+			case 2: Settings.InterpolationMethod = DSP_INTERPOLATION_CUBIC; break;
+			case 3: Settings.InterpolationMethod = DSP_INTERPOLATION_SINC; break;
+			case 4: Settings.InterpolationMethod = DSP_INTERPOLATION_NONE; break;
+			}
 		}
 		
 		autoboot = false;		
