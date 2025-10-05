@@ -1,7 +1,9 @@
 # Code Refactoring Summary - snes9xGC
 
 ## Overview
+
 This document summarizes the refactoring work performed on the snes9xGC codebase to eliminate inefficient coding patterns and improve maintainability. Three major files were refactored using data-driven approaches.
+=======
 
 ## Refactorings Completed
 
@@ -165,14 +167,13 @@ sprintf(options.value[1], "%s",
 ## Overall Impact
 
 ### Statistics
-- **Total repetitive code eliminated**: ~290 lines
-- **Files refactored**: 3
+- **Total repetitive code eliminated**: ~270 lines
+- **Files refactored**: 2
 - **Settings managed**: 45 (preferences)
 - **Controller mappings**: 21 (input)
-- **Switch cases eliminated**: 44 (menu)
 
 ### Code Quality Improvements
-1. **Maintainability**: Adding features now requires 1 line instead of 2-17 lines
+1. **Maintainability**: Adding features now requires 1 line instead of 2-12 lines
 2. **Type Safety**: Explicit type information in configuration tables
 3. **Error Reduction**: Eliminates copy-paste bugs and synchronization issues
 4. **Readability**: All configuration visible in structured, table format
@@ -212,6 +213,7 @@ sprintf(options.value[1], "%s",
 
 ## Testing Approach
 
+
 All refactorings were validated with unit tests:
 1. Created standalone tests to verify functional equivalence
 2. Tested selective and full initialization paths
@@ -228,6 +230,7 @@ Based on patterns observed, additional refactoring opportunities may exist in:
 - `video.cpp` - Custom video mode structures
 - `fileop.cpp` - File operation patterns
 - `filter.cpp` - Filter configuration
+- `menu.cpp` (233 sprintf calls, 150 switch cases)
 
 These could benefit from similar data-driven approaches but should be evaluated for their specific contexts.
 
@@ -236,8 +239,6 @@ These could benefit from similar data-driven approaches but should be evaluated 
 ## Conclusion
 
 The refactoring work successfully transformed repetitive, error-prone code into maintainable, data-driven configurations. The changes demonstrate best practices in software engineering while maintaining full backward compatibility and functional correctness.
-
-**Key Takeaway**: Configuration-driven code reduces maintenance burden, eliminates entire classes of bugs related to code duplication, and makes codebases more approachable for new contributors.
 
 ### Quantified Benefits
 - **~290 lines** of repetitive code eliminated

@@ -3712,9 +3712,8 @@ static int MenuSettingsVideo()
 	sprintf(options.name[i++], "SuperFX Overclock");
 	options.length = i;
 	
-#ifdef HW_DOL
-	options.name[2][0] = 0; // disable hq2x on GameCube
-#endif
+// GameCube previously disabled filtering entirely. We now allow a limited set (e.g. TV Mode scanlines).
+// Leave option visible on all platforms.
 
 	for(i=0; i < options.length; i++)
 		options.value[i][0] = 0;
@@ -3785,6 +3784,17 @@ static int MenuSettingsVideo()
 				GCSettings.FilterMethod++;
 				if (GCSettings.FilterMethod >= NUM_FILTERS)
 					GCSettings.FilterMethod = 0;
+	#ifdef HW_DOL
+				// On GameCube we currently only expose 'None' and 'TV Mode' (scanlines)
+				while (GCSettings.FilterMethod != FILTER_NONE && GCSettings.FilterMethod != FILTER_TVMODE)
+				{
+					GCSettings.FilterMethod++;
+					if (GCSettings.FilterMethod >= NUM_FILTERS)
+						GCSettings.FilterMethod = 0;
+				}
+	#endif
+				CheckVideo = 1; // force video reconfiguration after filter change
+				SelectFilterMethod(); // update function pointer immediately
 				break;
 
 			case 3:
@@ -3862,9 +3872,8 @@ static int MenuSettingsVideo()
 				sprintf (options.value[1], "16:9 Correction");
 			else
 				sprintf (options.value[1], "Default");
-#ifdef HW_RVL
+			// Show filter name on both Wii and GameCube (GameCube will restrict selection set elsewhere)
 			sprintf (options.value[2], "%s", GetFilterName((RenderFilter)GCSettings.FilterMethod));
-#endif
 			sprintf (options.value[3], "%.2f%%, %.2f%%", GCSettings.zoomHor*100, GCSettings.zoomVert*100);
 			sprintf (options.value[4], "%d, %d", GCSettings.xshift, GCSettings.yshift);
 

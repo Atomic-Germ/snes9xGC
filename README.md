@@ -22,6 +22,7 @@ Wii homebrew is WiiBrew (www.wiibrew.org).
  - [Importing and Exporting SRAM](#importing-and-exporting-sram)
  - [Update History (OLD)](#update-history-old)
  - [Credits](#credits)
+ - [Development & Testing](#development--testing)
  - [Links](#links)
 
 
@@ -1108,6 +1109,45 @@ changes to the emulator settings again and save them.
                       libogc/devkitPPC                   shagkur & WinterMute
                       FreeTypeGX                              Armin Tamzarian
 
+
+## DEVELOPMENT & TESTING
+
+This project includes a comprehensive unit test suite to ensure code quality and prevent regressions.
+
+### Running Tests
+
+To build and run the unit tests:
+
+```bash
+cd tests
+make run
+```
+
+### Test Coverage
+
+The test suite covers:
+- Video mode selection and rendering logic
+- File operation utilities
+- Controller button mapping
+- Settings validation and preferences
+- Path manipulation functions
+
+### Continuous Integration
+
+GitHub Actions automatically:
+- Builds and runs unit tests on all pull requests
+- Performs static code analysis with cppcheck
+- Verifies Wii and GameCube builds compile
+
+For detailed testing documentation, see [`tests/README.md`](tests/README.md).
+
+### Contributing
+
+When contributing code:
+1. Add appropriate unit tests for new functionality
+2. Ensure all tests pass locally with `make run`
+3. Follow existing code style and conventions
+4. Verify CI checks pass on your pull request
 
 ## LINKS
 
