@@ -380,16 +380,6 @@ void StopGX()
 	VIDEO_Flush();
 }
 
-// Video mode lookup table - replaces switch statement
-static GXRModeObj* videoModeTable[] = {
-	NULL,                       // case 0: Auto (handled by default)
-	&TVNtsc480IntDf,           // case 1: NTSC (480i)
-	&TVNtsc480Prog,            // case 2: Progressive (480p)
-	&TVPal576IntDfScale,       // case 3: PAL (50Hz)
-	&TVEurgb60Hz480IntDf,      // case 4: PAL (60Hz)
-	&TVPal576ProgScale         // case 5: Progressive (576p)
-};
-
 /****************************************************************************
  * FindVideoMode
  *
@@ -399,21 +389,37 @@ static GXRModeObj* videoModeTable[] = {
 static GXRModeObj * FindVideoMode()
 {
 	GXRModeObj * mode;
-	const int numModes = sizeof(videoModeTable) / sizeof(videoModeTable[0]);
 
-	// choose the desired video mode using lookup table
-	if (GCSettings.videomode > 0 && GCSettings.videomode < numModes && videoModeTable[GCSettings.videomode] != NULL) {
-		mode = videoModeTable[GCSettings.videomode];
-	} else {
-		mode = VIDEO_GetPreferredMode(NULL);
-
-		#ifdef HW_DOL
-		/* we have component cables, but the preferred mode is interlaced
-		 * why don't we switch into progressive?
-		 * on the Wii, the user can do this themselves on their Wii Settings */
-		if(VIDEO_HaveComponentCable())
+	// choose the desired video mode
+	switch(GCSettings.videomode)
+	{
+		case 1: // NTSC (480i)
+			mode = &TVNtsc480IntDf;
+			break;
+		case 2: // Progressive (480p)
 			mode = &TVNtsc480Prog;
-		#endif
+			break;
+		case 3: // PAL (50Hz)
+			mode = &TVPal576IntDfScale;
+			break;
+		case 4: // PAL (60Hz)
+			mode = &TVEurgb60Hz480IntDf;
+			break;
+		case 5: // Progressive (576p)
+			mode = &TVPal576ProgScale;
+			break;
+		default:
+			mode = VIDEO_GetPreferredMode(NULL);
+
+			#ifdef HW_DOL
+			/* we have component cables, but the preferred mode is interlaced
+			 * why don't we switch into progressive?
+			 * on the Wii, the user can do this themselves on their Wii Settings */
+			if(VIDEO_HaveComponentCable())
+				mode = &TVNtsc480Prog;
+			#endif
+
+			break;
 	}
 
 	// configure original modes
