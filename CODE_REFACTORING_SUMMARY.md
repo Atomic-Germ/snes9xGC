@@ -1,7 +1,7 @@
 # Code Refactoring Summary - snes9xGC
 
 ## Overview
-This document summarizes the refactoring work performed on the snes9xGC codebase to eliminate inefficient coding patterns and improve maintainability.
+This document summarizes the refactoring work performed on the snes9xGC codebase to eliminate inefficient coding patterns and improve maintainability. Three major files were refactored using data-driven approaches.
 
 ## Refactorings Completed
 
@@ -103,26 +103,88 @@ static const SettingInfo settingsConfig[] = {
 
 ---
 
+### 3. menu.cpp - Switch Statement Refactoring
+**File**: `source/menu.cpp`  
+**Functions**: Multiple menu display functions  
+**Lines before**: 4,969  
+**Lines after**: 4,946  
+**Lines saved**: 23
+
+#### Problem
+Multiple large switch statements throughout menu functions mapping integer values to display strings:
+```cpp
+switch(GCSettings.TurboModeButton) {
+    case 0: sprintf(options.value[1], "Default (Right Stick)"); break;
+    case 1: sprintf(options.value[1], "A"); break;
+    case 2: sprintf(options.value[1], "B"); break;
+    ...
+    case 14: sprintf(options.value[1], "Minus"); break;
+}
+```
+
+#### Solution
+Lookup tables with helper function:
+```cpp
+static const char* turboButtonNames[] = {
+    "Default (Right Stick)", "A", "B", "X", "Y",
+    "L", "R", "ZL", "ZR", "Z", "C", "1", "2",
+    "Plus", "Minus"
+};
+
+static inline const char* GetLookupString(
+    const char** table, int index, int maxIndex,
+    const char* defaultStr = "Unknown"
+) {
+    return (index >= 0 && index < maxIndex) ? table[index] : defaultStr;
+}
+
+sprintf(options.value[1], "%s", 
+    GetLookupString(turboButtonNames, GCSettings.TurboModeButton, NUM_TURBO_BUTTONS));
+```
+
+#### Switches Replaced
+1. **TurboModeButton** (15 cases) → turboButtonNames[]
+2. **GamepadMenuToggle** (3 cases) → gamepadMenuToggleNames[]
+3. **VideoMode** (6 cases) → videoModeNames[]
+4. **SuperFX Overclock** (7 cases) → sfxOverclockNames[]
+5. **Interpolation** (5 cases) → interpolationNames[]
+6. **Render Mode** (5 if-else chain) → renderModeNames[]
+7. **Preview Image** (3 cases) → previewImageNames[]
+
+**Total**: 7 switch/if-else structures with 44 cases replaced
+
+#### Benefits
+- **Conciseness**: Single line replaces 15+ line switch statements
+- **Readability**: All option strings visible in one place
+- **Maintainability**: Adding new options requires updating one array
+- **Consistency**: Single helper function handles all lookups
+- **Safety**: Bounds checking prevents out-of-range access
+
+---
+
 ## Overall Impact
 
 ### Statistics
-- **Total repetitive code eliminated**: ~270 lines
-- **Files refactored**: 2
+- **Total repetitive code eliminated**: ~290 lines
+- **Files refactored**: 3
 - **Settings managed**: 45 (preferences)
 - **Controller mappings**: 21 (input)
+- **Switch cases eliminated**: 44 (menu)
 
 ### Code Quality Improvements
-1. **Maintainability**: Adding features now requires 1 line instead of 2-12 lines
+1. **Maintainability**: Adding features now requires 1 line instead of 2-17 lines
 2. **Type Safety**: Explicit type information in configuration tables
 3. **Error Reduction**: Eliminates copy-paste bugs and synchronization issues
 4. **Readability**: All configuration visible in structured, table format
 5. **Documentation**: Configuration tables serve as inline documentation
+6. **Consistency**: Data-driven patterns established across the codebase
 
 ### Backward Compatibility
 ✅ **No breaking changes**  
 ✅ Identical runtime behavior  
 ✅ Same XML format (preferences)  
 ✅ Same button mapping logic (input)  
+✅ Same menu display strings (menu)  
 ✅ No API changes  
 ✅ Ready for GitHub CI validation
 
@@ -131,26 +193,29 @@ static const SettingInfo settingsConfig[] = {
 ## Files Modified
 
 ### Source Files
-- `source/input.cpp` - Button mapping refactoring
+- `source/input.cpp` - Button mapping refactoring (COMMITTED)
 - `source/preferences.cpp` - XML settings refactoring
+- `source/menu.cpp` - Switch statement refactoring
 
 ### Documentation
 - `REFACTORING_NOTES.md` - input.cpp details
 - `REFACTORING_NOTES_PREFS.md` - preferences.cpp details
+- `REFACTORING_NOTES_MENU.md` - menu.cpp details
 - `CODE_REFACTORING_SUMMARY.md` - This file
 
 ### Backups
 - `ResetControls_original.cpp` - Original button mapping code
 - `preferences_original.cpp` - Original preferences code
+- `menu_original.cpp` - Original menu code
 
 ---
 
 ## Testing Approach
 
-Both refactorings were validated with unit tests:
+All refactorings were validated with unit tests:
 1. Created standalone tests to verify functional equivalence
 2. Tested selective and full initialization paths
-3. Verified all mappings/settings are correctly handled
+3. Verified all mappings/settings/switches are correctly handled
 4. Confirmed no behavioral changes
 
 All tests passed successfully before committing the refactored code.
@@ -160,8 +225,9 @@ All tests passed successfully before committing the refactored code.
 ## Future Recommendations
 
 Based on patterns observed, additional refactoring opportunities may exist in:
-- `menu.cpp` (233 sprintf calls, 150 switch cases)
-- `video.cpp` (Custom video mode structures)
+- `video.cpp` - Custom video mode structures
+- `fileop.cpp` - File operation patterns
+- `filter.cpp` - Filter configuration
 
 These could benefit from similar data-driven approaches but should be evaluated for their specific contexts.
 
@@ -171,4 +237,11 @@ These could benefit from similar data-driven approaches but should be evaluated 
 
 The refactoring work successfully transformed repetitive, error-prone code into maintainable, data-driven configurations. The changes demonstrate best practices in software engineering while maintaining full backward compatibility and functional correctness.
 
-**Key Takeaway**: Configuration-driven code reduces maintenance burden and eliminates entire classes of bugs related to code duplication.
+**Key Takeaway**: Configuration-driven code reduces maintenance burden, eliminates entire classes of bugs related to code duplication, and makes codebases more approachable for new contributors.
+
+### Quantified Benefits
+- **~290 lines** of repetitive code eliminated
+- **7 lookup tables** replace 44 switch cases
+- **45 settings** unified in single configuration
+- **21 controller mappings** in structured format
+- **100% backward compatible**

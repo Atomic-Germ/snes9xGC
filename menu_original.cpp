@@ -101,85 +101,6 @@ u8 * bg_music;
 u32 bg_music_size;
 
 /****************************************************************************
- * Lookup tables for menu option values
- * Replaces repetitive switch statements with data-driven approach
- ***************************************************************************/
-
-// Turbo Mode Button names
-static const char* turboButtonNames[] = {
-	"Default (Right Stick)",
-	"A", "B", "X", "Y",
-	"L", "R", "ZL", "ZR",
-	"Z", "C", "1", "2",
-	"Plus", "Minus"
-};
-static const int NUM_TURBO_BUTTONS = sizeof(turboButtonNames) / sizeof(turboButtonNames[0]);
-
-// Gamepad Menu Toggle names
-static const char* gamepadMenuToggleNames[] = {
-	"Default (All Enabled)",
-	"Home / Right Stick",
-	"L+R+Start / 1+2+Plus"
-};
-static const int NUM_GAMEPAD_MENU_TOGGLES = sizeof(gamepadMenuToggleNames) / sizeof(gamepadMenuToggleNames[0]);
-
-// Video Mode names
-static const char* videoModeNames[] = {
-	"Automatic (Recommended)",
-	"NTSC (480i)",
-	"Progressive (480p)",
-	"PAL (50Hz)",
-	"PAL (60Hz)",
-	"Progressive (576p)"
-};
-static const int NUM_VIDEO_MODES = sizeof(videoModeNames) / sizeof(videoModeNames[0]);
-
-// SuperFX Overclock names
-static const char* sfxOverclockNames[] = {
-	"Default",
-	"20 MHz",
-	"40 MHz",
-	"60 MHz",
-	"80 MHz",
-	"100 MHz",
-	"120 MHz"
-};
-static const int NUM_SFX_OVERCLOCK_OPTIONS = sizeof(sfxOverclockNames) / sizeof(sfxOverclockNames[0]);
-
-// Interpolation names
-static const char* interpolationNames[] = {
-	"Gaussian (Accurate)",
-	"Linear",
-	"Cubic",
-	"Sinc",
-	"None"
-};
-static const int NUM_INTERPOLATION_OPTIONS = sizeof(interpolationNames) / sizeof(interpolationNames[0]);
-
-// Render mode names
-static const char* renderModeNames[] = {
-	"Original (240p)",
-	"Filtered",
-	"Unfiltered",
-	"Filtered (Sharp)",
-	"Filtered (Soft)"
-};
-static const int NUM_RENDER_MODES = sizeof(renderModeNames) / sizeof(renderModeNames[0]);
-
-// Preview image names  
-static const char* previewImageNames[] = {
-	"Screenshots",
-	"Covers",
-	"Artworks"
-};
-static const int NUM_PREVIEW_IMAGE_OPTIONS = sizeof(previewImageNames) / sizeof(previewImageNames[0]);
-
-// Helper function to safely get string from lookup table
-static inline const char* GetLookupString(const char** table, int index, int maxIndex, const char* defaultStr = "Unknown") {
-	return (index >= 0 && index < maxIndex) ? table[index] : defaultStr;
-}
-
-/****************************************************************************
  * ResumeGui
  *
  * Signals the GUI thread to start, and resumes the thread. This is called
@@ -3667,9 +3588,49 @@ static int MenuSettingsOtherMappings()
 			firstRun = false;
 			sprintf (options.value[0], "%s", GCSettings.TurboModeEnabled == 1 ? "On" : "Off");
 			
-			sprintf (options.value[1], "%s", GetLookupString(turboButtonNames, GCSettings.TurboModeButton, NUM_TURBO_BUTTONS));
+			switch(GCSettings.TurboModeButton)
+			{
+				case 0:
+					sprintf (options.value[1], "Default (Right Stick)"); break;
+				case 1:
+					sprintf (options.value[1], "A"); break;
+				case 2:
+					sprintf (options.value[1], "B"); break;
+				case 3:
+					sprintf (options.value[1], "X"); break;
+				case 4:
+					sprintf (options.value[1], "Y"); break;
+				case 5:
+					sprintf (options.value[1], "L"); break;
+				case 6:
+					sprintf (options.value[1], "R"); break;
+				case 7:
+					sprintf (options.value[1], "ZL"); break;
+				case 8:
+					sprintf (options.value[1], "ZR"); break;
+				case 9:
+					sprintf (options.value[1], "Z"); break;
+				case 10:
+					sprintf (options.value[1], "C"); break;
+				case 11:
+					sprintf (options.value[1], "1"); break;
+				case 12:
+					sprintf (options.value[1], "2"); break;
+				case 13:
+					sprintf (options.value[1], "Plus"); break;
+				case 14:
+					sprintf (options.value[1], "Minus"); break;
+			}
 
-			sprintf (options.value[2], "%s", GetLookupString(gamepadMenuToggleNames, GCSettings.GamepadMenuToggle, NUM_GAMEPAD_MENU_TOGGLES));
+			switch(GCSettings.GamepadMenuToggle)
+			{
+				case 0:
+					sprintf (options.value[2], "Default (All Enabled)"); break;
+				case 1:
+					sprintf (options.value[2], "Home / Right Stick"); break;
+				case 2:
+					sprintf (options.value[2], "L+R+Start / 1+2+Plus"); break;
+			}
 
 			sprintf (options.value[3], "%s", GCSettings.MapABXYRightStick == 1 ? "On" : "Off");
 
@@ -3856,7 +3817,16 @@ static int MenuSettingsVideo()
 		{
 			firstRun = false;
 
-			sprintf (options.value[0], "%s", GetLookupString(renderModeNames, GCSettings.render, NUM_RENDER_MODES));
+			if (GCSettings.render == 0)
+				sprintf (options.value[0], "Original (240p)");
+			else if (GCSettings.render == 1)
+				sprintf (options.value[0], "Filtered");
+			else if (GCSettings.render == 2)
+				sprintf (options.value[0], "Unfiltered");
+			else if (GCSettings.render == 3)
+				sprintf (options.value[0], "Filtered (Sharp)");
+			else if (GCSettings.render == 4)
+				sprintf (options.value[0], "Filtered (Soft)");
 
 			if(GCSettings.widescreen)
 				sprintf (options.value[1], "16:9 Correction");
@@ -3868,14 +3838,44 @@ static int MenuSettingsVideo()
 			sprintf (options.value[3], "%.2f%%, %.2f%%", GCSettings.zoomHor*100, GCSettings.zoomVert*100);
 			sprintf (options.value[4], "%d, %d", GCSettings.xshift, GCSettings.yshift);
 
-			sprintf (options.value[5], "%s", GetLookupString(videoModeNames, GCSettings.videomode, NUM_VIDEO_MODES));
+			switch(GCSettings.videomode)
+			{
+				case 0:
+					sprintf (options.value[5], "Automatic (Recommended)"); break;
+				case 1:
+					sprintf (options.value[5], "NTSC (480i)"); break;
+				case 2:
+					sprintf (options.value[5], "Progressive (480p)"); break;
+				case 3:
+					sprintf (options.value[5], "PAL (50Hz)"); break;
+				case 4:
+					sprintf (options.value[5], "PAL (60Hz)"); break;
+				case 5:
+					sprintf (options.value[5], "Progressive (576p)"); break;
+			}
 			sprintf (options.value[6], "%s", GCSettings.HiResolution == 1 ? "On" : "Off");
 			sprintf (options.value[7], "%s", GCSettings.SpriteLimit == 1 ? "On" : "Off");
 			sprintf (options.value[8], "%s", GCSettings.FrameSkip == 1 ? "On" : "Off");
 			sprintf (options.value[9], "%s", GCSettings.crosshair == 1 ? "On" : "Off");
 			sprintf (options.value[10], "%s", Settings.DisplayFrameRate ? "On" : "Off");
 			sprintf (options.value[11], "%s", Settings.DisplayTime ? "On" : "Off");
-			sprintf (options.value[12], "%s", GetLookupString(sfxOverclockNames, GCSettings.sfxOverclock, NUM_SFX_OVERCLOCK_OPTIONS));
+			switch(GCSettings.sfxOverclock)
+			{
+				case 0:
+					sprintf (options.value[12], "Default"); break;
+				case 1:
+					sprintf (options.value[12], "20 MHz"); break;
+				case 2:
+					sprintf (options.value[12], "40 MHz"); break;
+				case 3:
+					sprintf (options.value[12], "60 MHz"); break;
+				case 4:
+					sprintf (options.value[12], "80 MHz"); break;
+				case 5:
+					sprintf (options.value[12], "100 MHz"); break;
+				case 6:
+					sprintf (options.value[12], "120 MHz"); break;
+			}
 			optionBrowser.TriggerUpdate();
 		}
 
@@ -3979,7 +3979,19 @@ static int MenuSettingsAudio()
 		{
 			firstRun = false;
 			
-			sprintf (options.value[0], "%s", GetLookupString(interpolationNames, GCSettings.Interpolation, NUM_INTERPOLATION_OPTIONS));
+			switch(GCSettings.Interpolation)
+			{
+				case 0:
+					sprintf (options.value[0], "Gaussian (Accurate)"); break;
+				case 1:
+					sprintf (options.value[0], "Linear"); break;
+				case 2:
+					sprintf (options.value[0], "Cubic"); break;
+				case 3:
+					sprintf (options.value[0], "Sinc"); break;
+				case 4:
+					sprintf (options.value[0], "None"); break;
+			}
 
 			sprintf (options.value[1], "%s", GCSettings.MuteAudio ? "On" : "Off");
 
@@ -4607,7 +4619,18 @@ static int MenuSettingsMenu()
 				case LANG_SWEDISH:		sprintf(options.value[5], "Swedish"); break;
 			}
 			
-			sprintf(options.value[6], "%s", GetLookupString(previewImageNames, GCSettings.PreviewImage, NUM_PREVIEW_IMAGE_OPTIONS));
+			switch(GCSettings.PreviewImage)
+			{
+				case 0:	
+					sprintf(options.value[6], "Screenshots");
+					break; 
+				case 1:	
+					sprintf(options.value[6], "Covers");
+					break; 
+				case 2:	
+					sprintf(options.value[6], "Artwork");
+					break; 
+			}
 			
 			optionBrowser.TriggerUpdate();
 		}
