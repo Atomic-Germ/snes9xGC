@@ -371,9 +371,12 @@ static void decodepad (int chan, int emuChan)
 	u32 wp = userInput[chan].wpad->btns_h;
 	bool isWUPC = userInput[chan].wpad->exp.classic.type == 2;
 
-	u32 exp_type;
-	if ( WPAD_Probe(chan, &exp_type) != 0 )
-		exp_type = WPAD_EXP_NONE;
+	// Optimization: Use already-cached expansion type instead of WPAD_Probe()
+	// WPAD_Probe() is a hardware I/O operation over Bluetooth (expensive!)
+	// The expansion type is already available in userInput[chan].wpad->exp.type,
+	// which was updated by WPAD_ScanPads() in UpdatePads() just before this function.
+	// This eliminates 240 hardware probes/second at 60 FPS (4 controllers * 60 frames).
+	u32 exp_type = userInput[chan].wpad->exp.type;
 
 	s16 wiidrc_ax = userInput[chan].wiidrcdata.stickX;
 	s16 wiidrc_ay = userInput[chan].wiidrcdata.stickY;
