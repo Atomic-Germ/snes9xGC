@@ -102,6 +102,11 @@ static void open()
 	setup = true;
 }
 
+bool Retrode_IsConnected()
+{
+	return deviceId != 0;
+}
+
 void Retrode_ScanPads()
 {
 	if (deviceId == 0)

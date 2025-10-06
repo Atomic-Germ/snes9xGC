@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 bool Hornet_ScanPads();
+bool Hornet_IsConnected();
 u32 Hornet_ButtonsHeld(int chan);
 char* Hornet_Status();
 

@@ -159,12 +159,27 @@ void
 UpdatePads()
 {
 	#ifdef HW_RVL
-	WiiDRC_ScanPads();
-	Retrode_ScanPads();
-	XBOX360_ScanPads();
-	Hornet_ScanPads();
-	Mayflash_ScanPads();
-	WPAD_ScanPads();
+	// Optimization: Only scan for controllers that are actually initialized/connected
+	// This avoids unnecessary function call overhead for devices that aren't present
+	// Typical setup might only have 1-2 of these controllers active, so we save 4-5
+	// function calls per frame (240-300 calls per second at 60 FPS)
+	
+	if(WiiDRC_Inited())
+		WiiDRC_ScanPads();
+	
+	if(Retrode_IsConnected())
+		Retrode_ScanPads();
+	
+	if(XBOX360_IsConnected())
+		XBOX360_ScanPads();
+	
+	if(Hornet_IsConnected())
+		Hornet_ScanPads();
+	
+	if(Mayflash_IsConnected())
+		Mayflash_ScanPads();
+	
+	WPAD_ScanPads();  // Always scan standard Wii remotes
 	#endif
 
 	PAD_ScanPads();

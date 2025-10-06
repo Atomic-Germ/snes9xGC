@@ -283,6 +283,11 @@ static void open()
 	setup = true;
 }
 
+bool XBOX360_IsConnected()
+{
+	return deviceId != 0;
+}
+
 void XBOX360_ScanPads()
 {
 	if (deviceId == 0)

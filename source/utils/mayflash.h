@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 bool Mayflash_ScanPads();
+bool Mayflash_IsConnected();
 u32 Mayflash_ButtonsHeld(int chan);
 char* Mayflash_Status();
 
