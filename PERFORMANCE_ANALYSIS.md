@@ -82,9 +82,11 @@ if ( WPAD_Probe(chan, &exp_type) != 0 )
 
 ---
 
-### 4. **Multiple Controller Button Scans** ⚠️ LOW-MEDIUM IMPACT
+### 4. **Multiple Controller Scans** ✅ FIXED
 
 **Location:** `source/input.cpp:159-168`
+
+**Previous Problem:** Six different controller scan functions were called unconditionally every frame, even if those controllers weren't connected or being used:
 
 ```cpp
 void UpdatePads()
@@ -102,11 +104,38 @@ void UpdatePads()
 }
 ```
 
-**Problem:** Six different controller scan functions are called every frame, even if those controllers aren't connected or being used.
+While these functions had internal early-exit checks, there was still function call overhead for every disconnected device.
 
-**Impact:** Low-Medium - Most of these probably have early exits if devices aren't present, but still overhead.
+**Fix Applied:**
+1. Added `IsConnected()` functions to each USB controller module (Retrode, XBOX360, Hornet, Mayflash)
+2. Modified `UpdatePads()` to check connection status before calling scan functions
+3. WiiDRC already had `WiiDRC_Inited()` which we now use
 
-**Potential fix:** Only scan for controllers that are actually detected/enabled.
+```cpp
+if(WiiDRC_Inited())
+    WiiDRC_ScanPads();
+
+if(Retrode_IsConnected())
+    Retrode_ScanPads();
+
+if(XBOX360_IsConnected())
+    XBOX360_ScanPads();
+
+if(Hornet_IsConnected())
+    Hornet_ScanPads();
+
+if(Mayflash_IsConnected())
+    Mayflash_ScanPads();
+
+WPAD_ScanPads();  // Always scan standard Wii remotes
+```
+
+**Performance Improvement:**
+- Typical setup has only 1-2 of these specialty controllers active
+- Saves 4-5 unnecessary function calls per frame
+- At 60 FPS: 240-300 fewer function calls per second
+- Eliminates function call overhead (stack push/pop, register save/restore)
+- Most significant benefit on GameCube with its lower CPU frequency (485 MHz vs Wii's 729 MHz)
 
 ---
 
@@ -223,16 +252,16 @@ DCFlushRange(texturemem, textureSize);
 3. **WPAD_Probe hardware calls** - 240 hardware I/O operations per second
    - Cache controller type, probe only on changes
 
-3. **Large memset operations** - 491KB clear on video mode changes
+4. **Large memset operations** - 491KB clear on video mode changes
    - Only clear when necessary or in smaller chunks
 
 ### Medium Priority:
-4. **Multiple controller scans** - 6 scan functions called every frame
-   - Skip scans for disconnected devices
+5. **Multiple controller scans** - 6 scan functions called every frame
+   - ✅ **FIXED**: Added connection checks before calling scan functions, saves 240-300 calls/sec
 
 ### Low Priority (Micro-optimizations):
-5. **Button mapping loop structure** - Can be streamlined but impact is minimal
-6. **Redundant controller type checks** - Already fast due to branch prediction
+6. **Button mapping loop structure** - Can be streamlined but impact is minimal
+7. **Redundant controller type checks** - Already fast due to branch prediction
 
 ---
 

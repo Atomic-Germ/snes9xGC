@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 bool Retrode_ScanPads();
+bool Retrode_IsConnected();
 u32 Retrode_ButtonsHeld(int chan);
 char* Retrode_Status();
 

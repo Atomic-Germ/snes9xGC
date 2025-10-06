@@ -82,6 +82,11 @@ static void open()
 	setup = true;
 }
 
+bool Hornet_IsConnected()
+{
+	return deviceId != 0;
+}
+
 void Hornet_ScanPads()
 {
 	if (deviceId == 0)
