@@ -207,8 +207,14 @@ HaltGui()
 	guiHalt = true;
 
 	// wait for thread to finish
+	int timeout = 0;
 	while(!LWP_ThreadIsSuspended(guithread))
+	{
 		usleep(THREAD_SLEEP);
+		timeout++;
+		if(timeout > 100) // prevent infinite loop
+			break;
+	}
 }
 
 static void ResetText()
@@ -372,6 +378,10 @@ WindowPrompt(const char *title, const char *msg, const char *btn1Label, const ch
 	promptWindow.SetEffect(EFFECT_SLIDE_TOP | EFFECT_SLIDE_IN, 50);
 	CancelAction();
 	HaltGui();
+	
+	if(!mainWindow) // Check again after HaltGui
+		return 0;
+	
 	mainWindow->SetState(STATE_DISABLED);
 	mainWindow->Append(&promptWindow);
 	mainWindow->ChangeFocus(&promptWindow);
@@ -384,6 +394,9 @@ WindowPrompt(const char *title, const char *msg, const char *btn1Label, const ch
 
 	while(choice == -1)
 	{
+		if(ExitRequested || ShutdownRequested)
+			break;
+			
 		usleep(THREAD_SLEEP);
 
 		if(btn1.GetState() == STATE_CLICKED)
@@ -395,8 +408,13 @@ WindowPrompt(const char *title, const char *msg, const char *btn1Label, const ch
 	promptWindow.SetEffect(EFFECT_SLIDE_TOP | EFFECT_SLIDE_OUT, 50);
 	while(promptWindow.GetEffect() > 0) usleep(THREAD_SLEEP);
 	HaltGui();
-	mainWindow->Remove(&promptWindow);
-	mainWindow->SetState(STATE_DEFAULT);
+	
+	if(mainWindow) // NULL check before access
+	{
+		mainWindow->Remove(&promptWindow);
+		mainWindow->SetState(STATE_DEFAULT);
+	}
+	
 	ResumeGui();
 	return choice;
 }
@@ -538,6 +556,13 @@ ProgressWindow(char *title, char *msg)
 		return;
 
 	HaltGui();
+	
+	if(!mainWindow) // NULL check before access
+	{
+		ResumeGui();
+		return;
+	}
+	
 	int oldState = mainWindow->GetState();
 	mainWindow->SetState(STATE_DISABLED);
 	mainWindow->Append(&promptWindow);
@@ -561,7 +586,8 @@ ProgressWindow(char *title, char *msg)
 
 		if(showProgress == 1)
 		{
-			progressbarImg.SetTile(100*progressDone/progressTotal);
+			if(progressTotal > 0) // Prevent division by zero
+				progressbarImg.SetTile(100*progressDone/progressTotal);
 		}
 		else if(showProgress == 2)
 		{
@@ -577,8 +603,13 @@ ProgressWindow(char *title, char *msg)
 	}
 
 	HaltGui();
-	mainWindow->Remove(&promptWindow);
-	mainWindow->SetState(oldState);
+	
+	if(mainWindow) // NULL check before access
+	{
+		mainWindow->Remove(&promptWindow);
+		mainWindow->SetState(oldState);
+	}
+	
 	ResumeGui();
 }
 
@@ -620,8 +651,14 @@ CancelAction()
 	showProgress = 0;
 
 	// wait for thread to finish
+	int timeout = 0;
 	while(!LWP_ThreadIsSuspended(progressthread))
+	{
 		usleep(THREAD_SLEEP);
+		timeout++;
+		if(timeout > 100) // prevent infinite loop
+			break;
+	}
 }
 
 /****************************************************************************
@@ -727,6 +764,9 @@ void AutoSave()
  ***************************************************************************/
 static void OnScreenKeyboard(char * var, u32 maxlen)
 {
+	if(!mainWindow)
+		return;
+		
 	int save = -1;
 
 	GuiKeyboard keyboard(var, maxlen);
@@ -772,6 +812,13 @@ static void OnScreenKeyboard(char * var, u32 maxlen)
 	keyboard.Append(&cancelBtn);
 
 	HaltGui();
+	
+	if(!mainWindow) // Check again after HaltGui
+	{
+		ResumeGui();
+		return;
+	}
+	
 	mainWindow->SetState(STATE_DISABLED);
 	mainWindow->Append(&keyboard);
 	mainWindow->ChangeFocus(&keyboard);
@@ -779,6 +826,9 @@ static void OnScreenKeyboard(char * var, u32 maxlen)
 
 	while(save == -1)
 	{
+		if(ExitRequested || ShutdownRequested)
+			break;
+			
 		usleep(THREAD_SLEEP);
 
 		if(okBtn.GetState() == STATE_CLICKED)
@@ -793,8 +843,13 @@ static void OnScreenKeyboard(char * var, u32 maxlen)
 	}
 
 	HaltGui();
-	mainWindow->Remove(&keyboard);
-	mainWindow->SetState(STATE_DEFAULT);
+	
+	if(mainWindow) // NULL check before access
+	{
+		mainWindow->Remove(&keyboard);
+		mainWindow->SetState(STATE_DEFAULT);
+	}
+	
 	ResumeGui();
 }
 
@@ -807,6 +862,9 @@ static void OnScreenKeyboard(char * var, u32 maxlen)
 static int
 SettingWindow(const char * title, GuiWindow * w)
 {
+	if(!mainWindow)
+		return 0;
+		
 	int save = -1;
 
 	GuiWindow promptWindow(448,288);
@@ -861,6 +919,13 @@ SettingWindow(const char * title, GuiWindow * w)
 	promptWindow.Append(&cancelBtn);
 
 	HaltGui();
+	
+	if(!mainWindow) // Check again after HaltGui
+	{
+		ResumeGui();
+		return 0;
+	}
+	
 	mainWindow->SetState(STATE_DISABLED);
 	mainWindow->Append(&promptWindow);
 	mainWindow->Append(w);
@@ -869,6 +934,9 @@ SettingWindow(const char * title, GuiWindow * w)
 
 	while(save == -1)
 	{
+		if(ExitRequested || ShutdownRequested)
+			break;
+			
 		usleep(THREAD_SLEEP);
 
 		if(okBtn.GetState() == STATE_CLICKED)
@@ -876,10 +944,16 @@ SettingWindow(const char * title, GuiWindow * w)
 		else if(cancelBtn.GetState() == STATE_CLICKED)
 			save = 0;
 	}
+	
 	HaltGui();
-	mainWindow->Remove(&promptWindow);
-	mainWindow->Remove(w);
-	mainWindow->SetState(STATE_DEFAULT);
+	
+	if(mainWindow) // NULL check before access
+	{
+		mainWindow->Remove(&promptWindow);
+		mainWindow->Remove(w);
+		mainWindow->SetState(STATE_DEFAULT);
+	}
+	
 	ResumeGui();
 	return save;
 }
