@@ -776,25 +776,24 @@ void ReportButtons ()
 
 	// Quick State Save/Load with C-Stick (GameCube Controller)
 	// Only process if not in menu and a game is loaded
-	if (Memory.ROMFilename[0] != 0) {
-		s8 substickX = userInput[0].pad.substickX;
-		s8 substickY = userInput[0].pad.substickY;
-		
-		// C-Stick LEFT = Load State (threshold: -70)
-		if (substickX < -70 && stateLoadCooldown == 0) {
-			if (LoadSnapshotAuto(SILENT)) {
-				// Success - state loaded
-				// In a future update, can show OSD message here
+	if (Memory.ROMFilename[0] != 0 && !ConfigRequested) {
+		// Check all controller ports, not just port 0
+		for (int i = 0; i < 4; i++) {
+			s8 substickX = userInput[i].pad.substickX;
+			s8 substickY = userInput[i].pad.substickY;
+			
+			// C-Stick LEFT = Load State (threshold: -70)
+			if (substickX < -70 && stateLoadCooldown == 0) {
+				LoadSnapshotAuto(SILENT);
+				stateLoadCooldown = 30; // Half-second cooldown to prevent accidental double-loads
+				break; // Only process one controller's input per frame
 			}
-			stateLoadCooldown = 30; // Half-second cooldown to prevent accidental double-loads
-		}
-		// C-Stick RIGHT = Save State (threshold: 70)
-		else if (substickX > 70 && stateSaveCooldown == 0) {
-			if (SaveSnapshotAuto(SILENT)) {
-				// Success - state saved
-				// In a future update, can show OSD message here
+			// C-Stick RIGHT = Save State (threshold: 70)
+			else if (substickX > 70 && stateSaveCooldown == 0) {
+				SaveSnapshotAuto(SILENT);
+				stateSaveCooldown = 30; // Half-second cooldown to prevent accidental double-saves
+				break; // Only process one controller's input per frame
 			}
-			stateSaveCooldown = 30; // Half-second cooldown to prevent accidental double-saves
 		}
 		
 		// C-Stick UP/DOWN for slot cycling can be added in future update

@@ -881,6 +881,12 @@ update_video (int width, int height)
 
 	if(ScreenshotRequested)
 	{
+		// Simplified: Just go to menu without taking screenshot
+		// The screenshot background feature was causing crashes
+		ScreenshotRequested = 0;
+		ConfigRequested = 1;
+		
+		/* DISABLED: Screenshot background (causes crashes)
 		if(GCSettings.render == 0) // we can't take a screenshot in Original mode
 		{
 			oldRenderMode = 0;
@@ -898,6 +904,7 @@ update_video (int width, int height)
 			}
 			ConfigRequested = 1;
 		}
+		*/
 	}
 
 	VIDEO_SetNextFramebuffer (xfb[whichfb]);
@@ -975,8 +982,8 @@ ResetVideo_Menu ()
 
 	SetupVideoMode(rmode); // reconfigure VI
 
-	// clears the bg to color and clears the z buffer
-	GXColor background = {0, 0, 0, 255};
+	// Set menu background to white (not black) for better visibility
+	GXColor background = {255, 255, 255, 255};  // White background
 	GX_SetCopyClear (background, 0x00ffffff);
 
 	yscale = GX_GetYScaleFactor(vmode->efbHeight,vmode->xfbHeight);
