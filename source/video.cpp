@@ -761,8 +761,10 @@ update_video (int width, int height)
 		return; // we haven't rendered any frames yet, so we can't draw anything!
 
 	// Ensure previous vb has complete
+	// Optimized: use longer sleep since video thread typically completes quickly
+	// This wait is usually very short, so a few iterations at 200µs is acceptable
 	while ((LWP_ThreadIsSuspended (vbthread) == 0) || (copynow == GX_TRUE))
-		usleep (50);
+		usleep (200);
 
 	whichfb ^= 1;
 
