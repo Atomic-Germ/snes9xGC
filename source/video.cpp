@@ -846,6 +846,9 @@ update_video (int width, int height)
 			fscale = 1;
 		}
 	}
+	// Determine actual texture dimensions based on filtering
+	u32 actualTexWidth, actualTexHeight;
+	
 	if (filterIdLocal != FILTER_NONE && vheight <= 239 && vwidth <= 256 && FilterMethod)
 	{
 		// Copy function pointer locally to avoid race if changed by menu thread
@@ -853,13 +856,21 @@ update_video (int width, int height)
 		if (fm)
 			fm ((uint8*) GFX.Screen, EXT_PITCH, (uint8*) filtermem, vwidth*fscale*2, vwidth, vheight);
 		MakeTexture565((char *) filtermem, (char *) texturemem, vwidth*fscale, vheight*fscale);
+		actualTexWidth = vwidth * fscale;
+		actualTexHeight = vheight * fscale;
 	}
 	else
 	{
 		MakeTexture((char *) GFX.Screen, (char *) texturemem, vwidth, vheight);
+		actualTexWidth = vwidth;
+		actualTexHeight = vheight;
 	}
 
-	DCFlushRange (texturemem, TEXTUREMEM_SIZE);	// update the texture memory
+	// Flush only the actual texture size being used (RGB565 = 2 bytes per pixel)
+	// This is much more efficient than flushing the entire 512x520 buffer (532,480 bytes)
+	// Typical savings: 256x224 = 112KB vs 520KB (79% reduction)
+	u32 textureSize = actualTexWidth * actualTexHeight * 2;
+	DCFlushRange (texturemem, textureSize);	// update the texture memory
 	GX_InvalidateTexAll ();
 
 	draw_square (view);		// draw the quad
