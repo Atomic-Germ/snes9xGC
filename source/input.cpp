@@ -28,6 +28,7 @@
 #include "button_mapping.h"
 #include "menu.h"
 #include "video.h"
+#include "freeze.h"
 #include "input.h"
 #include "gui/gui.h"
 
@@ -598,21 +599,23 @@ bool MenuRequested()
 {
 	for(int i=0; i<4; i++)
 	{
-		if (GCSettings.GamepadMenuToggle == 1) // Home (WiiPad) or Right Stick (GC/3rd party gamepad) only
+		if (GCSettings.GamepadMenuToggle == 1) // Home (WiiPad) only - C-stick now used for state save/load
 		{
 			if (
-				(userInput[i].pad.substickX < -70)
+				// C-stick left removed - now used for load state
 				#ifdef HW_RVL
-				|| (userInput[i].wpad->btns_h & WPAD_BUTTON_HOME) ||
+				(userInput[i].wpad->btns_h & WPAD_BUTTON_HOME) ||
 				(userInput[i].wpad->btns_h & WPAD_CLASSIC_BUTTON_HOME) ||
 				(userInput[i].wiidrcdata.btns_h & WIIDRC_BUTTON_HOME)
+				#else
+				0 // On GameCube with this setting, use L+R+Start instead
 				#endif
 			)
 			{
 				return true;
 			}
 		}
-		else if (GCSettings.GamepadMenuToggle == 2) // L+R+Start / 1+2+Plus (Wiimote) combo only (frees up the right stick on GC/3rd party gamepad)
+		else if (GCSettings.GamepadMenuToggle == 2) // L+R+Start / 1+2+Plus (Wiimote) combo only
 		{
 			if (
 				(userInput[i].pad.btns_h & PAD_TRIGGER_L &&
@@ -631,10 +634,10 @@ bool MenuRequested()
 				return true;
 			}
 		}
-		else // All toggle options enabled
+		else // All toggle options enabled (except C-stick which is now for states)
 		{
 			if (
-				(userInput[i].pad.substickX < -70) ||
+				// C-stick left removed - now used for load state
 				(userInput[i].pad.btns_h & PAD_TRIGGER_L &&
 				userInput[i].pad.btns_h & PAD_TRIGGER_R &&
 				userInput[i].pad.btns_h & PAD_BUTTON_START)
@@ -740,6 +743,14 @@ bool IsTurboModeInputPressed()
 }
 
 /****************************************************************************
+ * Quick State Save/Load Support
+ ***************************************************************************/
+static int stateLoadCooldown = 0;  // Cooldown counter for load state
+static int stateSaveCooldown = 0;  // Cooldown counter for save state
+static int currentSaveSlot = 0;     // Current save slot (0-9)
+static int slotChangeCooldown = 0; // Cooldown for slot changes
+
+/****************************************************************************
  * ReportButtons
  *
  * Called on each rendered frame
@@ -763,11 +774,46 @@ void ReportButtons ()
 		Settings.SoundSync = soundSync;
 	}
 
+	// Quick State Save/Load with C-Stick (GameCube Controller)
+	// Only process if not in menu and a game is loaded
+	if (Memory.ROMFilename[0] != 0) {
+		s8 substickX = userInput[0].pad.substickX;
+		s8 substickY = userInput[0].pad.substickY;
+		
+		// C-Stick LEFT = Load State (threshold: -70)
+		if (substickX < -70 && stateLoadCooldown == 0) {
+			if (LoadSnapshotAuto(SILENT)) {
+				// Success - state loaded
+				// In a future update, can show OSD message here
+			}
+			stateLoadCooldown = 30; // Half-second cooldown to prevent accidental double-loads
+		}
+		// C-Stick RIGHT = Save State (threshold: 70)
+		else if (substickX > 70 && stateSaveCooldown == 0) {
+			if (SaveSnapshotAuto(SILENT)) {
+				// Success - state saved
+				// In a future update, can show OSD message here
+			}
+			stateSaveCooldown = 30; // Half-second cooldown to prevent accidental double-saves
+		}
+		
+		// C-Stick UP/DOWN for slot cycling can be added in future update
+		// For Phase 1, we use the default auto slot (slot 0)
+		
+		// Decrement cooldowns
+		if (stateLoadCooldown > 0) stateLoadCooldown--;
+		if (stateSaveCooldown > 0) stateSaveCooldown--;
+		if (slotChangeCooldown > 0) slotChangeCooldown--;
+	}
+
 	/* Check for menu:
-	 * CStick left
-	 * OR "L+R+START" (eg. Homebrew/Adapted SNES controllers)
+	 * "L+R+START" (GameCube controller / Homebrew/Adapted SNES controllers)
 	 * OR "Home" on the wiimote or classic controller
 	 * OR Left on classic right analog stick
+	 * 
+	 * Note: C-stick is now used for quick state save/load:
+	 * - C-stick LEFT = Load state
+	 * - C-stick RIGHT = Save state
 	 */
 	if(MenuRequested())
 		ScreenshotRequested = 1; // go to the menu
