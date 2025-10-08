@@ -29,7 +29,7 @@ jobs:
     - name: Run unit tests
       run: |
         cd tests
-        ./run_tests
+        /run_tests >> test-results.txt | cat
         
     - name: Upload test results
       uses: actions/upload-artifact@v4
