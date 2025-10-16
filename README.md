@@ -1141,34 +1141,6 @@ changes to the emulator settings again and save them.
 
 This project includes a comprehensive unit test suite to ensure code quality and prevent regressions.
 
-### Building
-
-#### Docker Build (Recommended)
-
-For the easiest build experience, use the provided Docker scripts:
-
-```bash
-# Build for both Wii and GameCube
-./docker-build.sh build all
-
-# For PGO optimization, see PGO_OPTIMIZATION.md
-./pgo-workflow.sh instrumented
-```
-
-See [`DOCKER_BUILD_README.md`](DOCKER_BUILD_README.md) for detailed Docker build instructions.
-
-#### Traditional Build
-
-Ensure devkitPPC is installed, then:
-
-```bash
-# Wii build
-make wii
-
-# GameCube build
-make gc
-```
-
 ### Running Tests
 
 To build and run the unit tests:

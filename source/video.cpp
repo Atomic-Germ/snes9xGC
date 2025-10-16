@@ -853,7 +853,7 @@ update_video (int width, int height)
 		// Clear filter buffer (used now on Wii and GameCube)
 		// Optimization: Only clear what we'll actually use instead of entire buffer
 		// Standard game (256×224 with 2× filter): 459KB vs 979KB (53% reduction)
-		// No filter: Skip entirely since MakeTexture overwrites everything
+		// No filter: Skip clear entirely since MakeTexture overwrites everything
 		if (filterIdLocal != FILTER_NONE && vheight <= 239 && vwidth <= 256)
 		{
 			u32 clearSize = vwidth * fscale * vheight * fscale * 4; // 4 bytes per RGBA pixel

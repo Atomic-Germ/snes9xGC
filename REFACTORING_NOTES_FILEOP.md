@@ -139,10 +139,10 @@ struct DeviceMapping {
 ```
 
 ### Platform-Specific Tables
-- **Wii (HW_RVL)**: 5 devices (SD, USB, GCLoader, DVD, SMB for load; SD, USB, GCLoader, SMB for save)
-- **GameCube**: 4 devices (SlotA, SlotB, Port2, DVD, SMB for load; SlotA, SlotB, Port2, SMB for save)
+- **Wii (HW_RVL)**: 2 devices (SD, USB)
+- **GameCube**: 4 devices (SlotA, SlotB, Port2, GCLoader)
 
-The same `GetDeviceMapping()` function works for both platforms, but device priority arrays are now platform-specific to avoid trying unsupported devices.
+The same `GetDeviceMapping()` function works for both platforms.
 
 ### Lookup Function
 Simple linear search through table:

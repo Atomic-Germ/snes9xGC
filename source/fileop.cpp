@@ -75,7 +75,7 @@ struct DeviceMapping {
 	int device;
 	const char* name;
 	const char* name2;
-	const DISC_INTERFACE** disc;
+	DISC_INTERFACE** disc;
 };
 
 #ifdef HW_RVL
@@ -87,8 +87,8 @@ static DeviceMapping deviceMappings[] = {
 static DeviceMapping deviceMappings[] = {
 	{DEVICE_SD_SLOTA, "carda", "carda:", &carda},
 	{DEVICE_SD_SLOTB, "cardb", "cardb:", &cardb},
-	{DEVICE_SD_PORT2, "port2", "port2:", &port2}
-	// Note: gcloader removed due to __io_gcode not available in current devkitPro
+	{DEVICE_SD_PORT2, "port2", "port2:", &port2},
+	{DEVICE_SD_GCLOADER, "gcloader", "gcloader:", &gcloader}
 };
 #endif
 
@@ -260,19 +260,19 @@ static bool MountFAT(int device, int silent)
 	if (!mapping)
 		return false; // unknown device
 
-	const DISC_INTERFACE* disc = *mapping->disc;
+	DISC_INTERFACE* disc = *mapping->disc;
 
 	if(unmountRequired[device])
 	{
 		unmountRequired[device] = false;
 		fatUnmount(mapping->name2);
-		disc->shutdown();
+		disc->shutdown(disc);
 		isMounted[device] = false;
 	}
 
 	while(retry)
 	{
-		if(disc->startup() && fatMountSimple(mapping->name, disc))
+		if(disc->startup(disc) && fatMountSimple(mapping->name, disc))
 			mounted = true;
 
 		if(mounted || silent)
