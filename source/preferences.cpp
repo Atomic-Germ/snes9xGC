@@ -721,10 +721,12 @@ bool LoadPrefs()
 		sprintf(filepath[0], "port2:/%s", APPFOLDER);
 		prefFound = LoadPrefsFromMethod(filepath[0]);
 	}
+	#ifdef HW_RVL
 	else if(ChangeInterface(DEVICE_SD_GCLOADER, SILENT)) {
 		sprintf(filepath[0], "gcloader:/%s", APPFOLDER);
 		prefFound = LoadPrefsFromMethod(filepath[0]);
 	}
+	#endif
 #endif
 
 	prefLoaded = true; // attempted to load preferences

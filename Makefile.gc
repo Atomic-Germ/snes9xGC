@@ -7,7 +7,7 @@ ifeq ($(strip $(DEVKITPPC)),)
 $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
 endif
 
-include $(DEVKITPRO)/libogc2/gamecube_rules
+include $(DEVKITPRO)/devkitPPC/gamecube_rules
 export	FREETYPE_CFLAGS 	:=	`$(DEVKITPRO)/portlibs/ppc/bin/powerpc-eabi-pkg-config --cflags freetype2`
 export	FREETYPE_LIBS	:=	`$(DEVKITPRO)/portlibs/ppc/bin/powerpc-eabi-pkg-config --libs freetype2`
 
@@ -20,16 +20,38 @@ export	FREETYPE_LIBS	:=	`$(DEVKITPRO)/portlibs/ppc/bin/powerpc-eabi-pkg-config -
 TARGET		:=	snes9xgx-gc
 TARGETDIR	:=	executables
 BUILD		:=	build_gc
-SOURCES		:=	source source/gui source/utils source/utils/sz source/utils/vm \
+SOURCES		:=	source source/gui source/utils source/utils/vm source/utils/sz \
 				source/snes9x source/snes9x/apu
 DATA		:=	source/images source/sounds source/fonts source/lang
 INCLUDES	:=	source source/snes9x
 
 #---------------------------------------------------------------------------------
+# PGO (Profile-Guided Optimization) support
+#---------------------------------------------------------------------------------
+PGO_GENERATE	?= 0
+PGO_USE			?= 0
+PGO_DIR			:= pgo_data
+
+ifeq ($(PGO_GENERATE),1)
+	BUILD := $(BUILD)_pgo_gen
+	TARGET := $(TARGET)_pgo_gen
+	PGO_CFLAGS := -fprofile-generate=$(PGO_DIR)
+	PGO_LDFLAGS :=
+else ifeq ($(PGO_USE),1)
+	BUILD := $(BUILD)_pgo_use
+	TARGET := $(TARGET)_pgo_use
+	PGO_CFLAGS := -fprofile-use=$(PGO_DIR)
+	PGO_LDFLAGS :=
+else
+	PGO_CFLAGS :=
+	PGO_LDFLAGS :=
+endif
+
+#---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
 
-CFLAGS	= -g -O3 -Wall $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS) \
+CFLAGS	= -g -O3 -Wall $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS) $(PGO_CFLAGS) \
 				-DHAVE_STDINT_H -DBLARGG_NONPORTABLE -DBLARGG_BIG_ENDIAN -DBLARGG_CPU_POWERPC \
 				-DZLIB -DRIGHTSHIFT_IS_SAR -DCPU_SHUTDOWN -DCORRECT_VRAM_READS \
 				-D_SZ_ONE_DIRECTORY -D_LZMA_IN_CB -D_LZMA_OUT_READ -DNO_SOUND -DUSE_VM \
@@ -40,7 +62,7 @@ CFLAGS	= -g -O3 -Wall $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS) \
 
 CXXFLAGS	=	$(CFLAGS)
 
-LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
+LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map $(PGO_LDFLAGS)
 LDFLAGS +=	-L../buildtools
 
 #---------------------------------------------------------------------------------
@@ -127,6 +149,26 @@ run:
 #---------------------------------------------------------------------------------
 reload:
 	psoload -r $(OUTPUT).dol
+
+#---------------------------------------------------------------------------------
+# PGO (Profile-Guided Optimization) targets
+#---------------------------------------------------------------------------------
+pgo-generate:
+	@echo "Building PGO instrumented version for profile generation..."
+	$(MAKE) PGO_GENERATE=1 clean
+	$(MAKE) PGO_GENERATE=1
+
+pgo-optimize:
+	@echo "Building PGO optimized version using profile data..."
+	$(MAKE) PGO_USE=1 clean
+	$(MAKE) PGO_USE=1
+
+pgo-clean:
+	@echo "Cleaning PGO data and builds..."
+	@rm -fr build_gc_pgo_gen build_gc_pgo_use $(PGO_DIR)
+	@rm -f executables/snes9xgx-gc_pgo_gen.dol executables/snes9xgx-gc_pgo_use.dol
+
+.PHONY: pgo-generate pgo-optimize pgo-clean
 
 
 #---------------------------------------------------------------------------------

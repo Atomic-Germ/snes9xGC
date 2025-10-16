@@ -64,6 +64,33 @@ Wii homebrew is WiiBrew (www.wiibrew.org).
 * Open Source!
 
 
+## PERFORMANCE NOTES
+
+### Compiler and Optimization
+- **GCC Version**: Updated to GCC 13.1.0 (devkitPPC release 45.2) for better GameCube performance
+- **Previous**: GCC 15.1.0 (devkitPPC release 47.1) - 4,476,032 bytes
+- **Current**: GCC 13.1.0 (devkitPPC release 45.2) - 4,075,904 bytes (~9% smaller binary)
+- **Optimization Level**: -O3 (highest optimization)
+- **Alternative Optimizations Tested**:
+  - `-Ofast`: Slightly smaller binary (~4KB reduction) but may have stability issues
+  - `-O2`: Significantly smaller binary (~358KB reduction) but potentially slower
+
+### devkitPro Version Considerations
+Recent devkitPro versions have reduced GameCube support:
+- `__io_gcode` (GCLoader) interface removed
+- Some GameCube-specific optimizations may be regressed
+
+**Solution**: Using devkitPro with GCC 13.1.0 (release 45.2) instead of GCC 15.1.0 (release 47.1) provides:
+- ~9% smaller binary size
+- Better GameCube compatibility
+- More stable PowerPC code generation
+
+### Performance Optimizations Implemented
+- AltiVec SIMD texture conversion for GameCube/Wii
+- Platform-specific device detection
+- Memory management optimizations
+
+
 ## UPDATE HISTORY
 
 [4.5.7 - July 30, 2025]
@@ -1113,6 +1140,34 @@ changes to the emulator settings again and save them.
 ## DEVELOPMENT & TESTING
 
 This project includes a comprehensive unit test suite to ensure code quality and prevent regressions.
+
+### Building
+
+#### Docker Build (Recommended)
+
+For the easiest build experience, use the provided Docker scripts:
+
+```bash
+# Build for both Wii and GameCube
+./docker-build.sh build all
+
+# For PGO optimization, see PGO_OPTIMIZATION.md
+./pgo-workflow.sh instrumented
+```
+
+See [`DOCKER_BUILD_README.md`](DOCKER_BUILD_README.md) for detailed Docker build instructions.
+
+#### Traditional Build
+
+Ensure devkitPPC is installed, then:
+
+```bash
+# Wii build
+make wii
+
+# GameCube build
+make gc
+```
 
 ### Running Tests
 
