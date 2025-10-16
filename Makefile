@@ -1,4 +1,4 @@
-.PHONY = all wii gc wii-clean gc-clean wii-run gc-run wii-pgo-generate wii-pgo-optimize gc-pgo-generate gc-pgo-optimize pgo-clean
+.PHONY: all wii gc wii-clean gc-clean wii-run gc-run wii-pgo-generate wii-pgo-optimize gc-pgo-generate gc-pgo-optimize pgo-clean
 
 all: wii gc
 
