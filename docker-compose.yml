@@ -1,0 +1,12 @@
+services:
+  builder:
+    # Using GCC 13.1.0 (devkitPPC release 45.2) for better GameCube performance
+    # GCC 15.1.0 (latest) produces larger binaries and may have GameCube regressions
+    image: devkitpro/devkitppc:20240612
+    volumes:
+      - .:/workspace
+      - ./pgo_data:/workspace/pgo_data
+    working_dir: /workspace
+    command: bash
+    stdin_open: true
+    tty: true

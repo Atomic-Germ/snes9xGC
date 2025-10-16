@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 bool XBOX360_ScanPads();
+bool XBOX360_IsConnected();
 u32 XBOX360_ButtonsHeld(int chan);
 char* XBOX360_Status();
 

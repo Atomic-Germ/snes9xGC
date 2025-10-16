@@ -101,6 +101,85 @@ u8 * bg_music;
 u32 bg_music_size;
 
 /****************************************************************************
+ * Lookup tables for menu option values
+ * Replaces repetitive switch statements with data-driven approach
+ ***************************************************************************/
+
+// Turbo Mode Button names
+static const char* turboButtonNames[] = {
+	"Default (Right Stick)",
+	"A", "B", "X", "Y",
+	"L", "R", "ZL", "ZR",
+	"Z", "C", "1", "2",
+	"Plus", "Minus"
+};
+static const int NUM_TURBO_BUTTONS = sizeof(turboButtonNames) / sizeof(turboButtonNames[0]);
+
+// Gamepad Menu Toggle names
+static const char* gamepadMenuToggleNames[] = {
+	"Default (All Enabled)",
+	"Home / Right Stick",
+	"L+R+Start / 1+2+Plus"
+};
+static const int NUM_GAMEPAD_MENU_TOGGLES = sizeof(gamepadMenuToggleNames) / sizeof(gamepadMenuToggleNames[0]);
+
+// Video Mode names
+static const char* videoModeNames[] = {
+	"Automatic (Recommended)",
+	"NTSC (480i)",
+	"Progressive (480p)",
+	"PAL (50Hz)",
+	"PAL (60Hz)",
+	"Progressive (576p)"
+};
+static const int NUM_VIDEO_MODES = sizeof(videoModeNames) / sizeof(videoModeNames[0]);
+
+// SuperFX Overclock names
+static const char* sfxOverclockNames[] = {
+	"Default",
+	"20 MHz",
+	"40 MHz",
+	"60 MHz",
+	"80 MHz",
+	"100 MHz",
+	"120 MHz"
+};
+static const int NUM_SFX_OVERCLOCK_OPTIONS = sizeof(sfxOverclockNames) / sizeof(sfxOverclockNames[0]);
+
+// Interpolation names
+static const char* interpolationNames[] = {
+	"Gaussian (Accurate)",
+	"Linear",
+	"Cubic",
+	"Sinc",
+	"None"
+};
+static const int NUM_INTERPOLATION_OPTIONS = sizeof(interpolationNames) / sizeof(interpolationNames[0]);
+
+// Render mode names
+static const char* renderModeNames[] = {
+	"Original (240p)",
+	"Filtered",
+	"Unfiltered",
+	"Filtered (Sharp)",
+	"Filtered (Soft)"
+};
+static const int NUM_RENDER_MODES = sizeof(renderModeNames) / sizeof(renderModeNames[0]);
+
+// Preview image names  
+static const char* previewImageNames[] = {
+	"Screenshots",
+	"Covers",
+	"Artworks"
+};
+static const int NUM_PREVIEW_IMAGE_OPTIONS = sizeof(previewImageNames) / sizeof(previewImageNames[0]);
+
+// Helper function to safely get string from lookup table
+static inline const char* GetLookupString(const char** table, int index, int maxIndex, const char* defaultStr = "Unknown") {
+	return (index >= 0 && index < maxIndex) ? table[index] : defaultStr;
+}
+
+/****************************************************************************
  * ResumeGui
  *
  * Signals the GUI thread to start, and resumes the thread. This is called
@@ -128,8 +207,14 @@ HaltGui()
 	guiHalt = true;
 
 	// wait for thread to finish
+	int timeout = 0;
 	while(!LWP_ThreadIsSuspended(guithread))
+	{
 		usleep(THREAD_SLEEP);
+		timeout++;
+		if(timeout > 100) // prevent infinite loop
+			break;
+	}
 }
 
 static void ResetText()
@@ -293,6 +378,10 @@ WindowPrompt(const char *title, const char *msg, const char *btn1Label, const ch
 	promptWindow.SetEffect(EFFECT_SLIDE_TOP | EFFECT_SLIDE_IN, 50);
 	CancelAction();
 	HaltGui();
+	
+	if(!mainWindow) // Check again after HaltGui
+		return 0;
+	
 	mainWindow->SetState(STATE_DISABLED);
 	mainWindow->Append(&promptWindow);
 	mainWindow->ChangeFocus(&promptWindow);
@@ -305,6 +394,9 @@ WindowPrompt(const char *title, const char *msg, const char *btn1Label, const ch
 
 	while(choice == -1)
 	{
+		if(ExitRequested || ShutdownRequested)
+			break;
+			
 		usleep(THREAD_SLEEP);
 
 		if(btn1.GetState() == STATE_CLICKED)
@@ -316,8 +408,13 @@ WindowPrompt(const char *title, const char *msg, const char *btn1Label, const ch
 	promptWindow.SetEffect(EFFECT_SLIDE_TOP | EFFECT_SLIDE_OUT, 50);
 	while(promptWindow.GetEffect() > 0) usleep(THREAD_SLEEP);
 	HaltGui();
-	mainWindow->Remove(&promptWindow);
-	mainWindow->SetState(STATE_DEFAULT);
+	
+	if(mainWindow) // NULL check before access
+	{
+		mainWindow->Remove(&promptWindow);
+		mainWindow->SetState(STATE_DEFAULT);
+	}
+	
 	ResumeGui();
 	return choice;
 }
@@ -459,6 +556,13 @@ ProgressWindow(char *title, char *msg)
 		return;
 
 	HaltGui();
+	
+	if(!mainWindow) // NULL check before access
+	{
+		ResumeGui();
+		return;
+	}
+	
 	int oldState = mainWindow->GetState();
 	mainWindow->SetState(STATE_DISABLED);
 	mainWindow->Append(&promptWindow);
@@ -482,7 +586,8 @@ ProgressWindow(char *title, char *msg)
 
 		if(showProgress == 1)
 		{
-			progressbarImg.SetTile(100*progressDone/progressTotal);
+			if(progressTotal > 0) // Prevent division by zero
+				progressbarImg.SetTile(100*progressDone/progressTotal);
 		}
 		else if(showProgress == 2)
 		{
@@ -498,8 +603,13 @@ ProgressWindow(char *title, char *msg)
 	}
 
 	HaltGui();
-	mainWindow->Remove(&promptWindow);
-	mainWindow->SetState(oldState);
+	
+	if(mainWindow) // NULL check before access
+	{
+		mainWindow->Remove(&promptWindow);
+		mainWindow->SetState(oldState);
+	}
+	
 	ResumeGui();
 }
 
@@ -541,8 +651,14 @@ CancelAction()
 	showProgress = 0;
 
 	// wait for thread to finish
+	int timeout = 0;
 	while(!LWP_ThreadIsSuspended(progressthread))
+	{
 		usleep(THREAD_SLEEP);
+		timeout++;
+		if(timeout > 100) // prevent infinite loop
+			break;
+	}
 }
 
 /****************************************************************************
@@ -648,6 +764,9 @@ void AutoSave()
  ***************************************************************************/
 static void OnScreenKeyboard(char * var, u32 maxlen)
 {
+	if(!mainWindow)
+		return;
+		
 	int save = -1;
 
 	GuiKeyboard keyboard(var, maxlen);
@@ -693,6 +812,13 @@ static void OnScreenKeyboard(char * var, u32 maxlen)
 	keyboard.Append(&cancelBtn);
 
 	HaltGui();
+	
+	if(!mainWindow) // Check again after HaltGui
+	{
+		ResumeGui();
+		return;
+	}
+	
 	mainWindow->SetState(STATE_DISABLED);
 	mainWindow->Append(&keyboard);
 	mainWindow->ChangeFocus(&keyboard);
@@ -700,6 +826,9 @@ static void OnScreenKeyboard(char * var, u32 maxlen)
 
 	while(save == -1)
 	{
+		if(ExitRequested || ShutdownRequested)
+			break;
+			
 		usleep(THREAD_SLEEP);
 
 		if(okBtn.GetState() == STATE_CLICKED)
@@ -714,8 +843,13 @@ static void OnScreenKeyboard(char * var, u32 maxlen)
 	}
 
 	HaltGui();
-	mainWindow->Remove(&keyboard);
-	mainWindow->SetState(STATE_DEFAULT);
+	
+	if(mainWindow) // NULL check before access
+	{
+		mainWindow->Remove(&keyboard);
+		mainWindow->SetState(STATE_DEFAULT);
+	}
+	
 	ResumeGui();
 }
 
@@ -728,6 +862,9 @@ static void OnScreenKeyboard(char * var, u32 maxlen)
 static int
 SettingWindow(const char * title, GuiWindow * w)
 {
+	if(!mainWindow)
+		return 0;
+		
 	int save = -1;
 
 	GuiWindow promptWindow(448,288);
@@ -782,6 +919,13 @@ SettingWindow(const char * title, GuiWindow * w)
 	promptWindow.Append(&cancelBtn);
 
 	HaltGui();
+	
+	if(!mainWindow) // Check again after HaltGui
+	{
+		ResumeGui();
+		return 0;
+	}
+	
 	mainWindow->SetState(STATE_DISABLED);
 	mainWindow->Append(&promptWindow);
 	mainWindow->Append(w);
@@ -790,6 +934,9 @@ SettingWindow(const char * title, GuiWindow * w)
 
 	while(save == -1)
 	{
+		if(ExitRequested || ShutdownRequested)
+			break;
+			
 		usleep(THREAD_SLEEP);
 
 		if(okBtn.GetState() == STATE_CLICKED)
@@ -797,10 +944,16 @@ SettingWindow(const char * title, GuiWindow * w)
 		else if(cancelBtn.GetState() == STATE_CLICKED)
 			save = 0;
 	}
+	
 	HaltGui();
-	mainWindow->Remove(&promptWindow);
-	mainWindow->Remove(w);
-	mainWindow->SetState(STATE_DEFAULT);
+	
+	if(mainWindow) // NULL check before access
+	{
+		mainWindow->Remove(&promptWindow);
+		mainWindow->Remove(w);
+		mainWindow->SetState(STATE_DEFAULT);
+	}
+	
 	ResumeGui();
 	return save;
 }
@@ -3588,49 +3741,9 @@ static int MenuSettingsOtherMappings()
 			firstRun = false;
 			sprintf (options.value[0], "%s", GCSettings.TurboModeEnabled == 1 ? "On" : "Off");
 			
-			switch(GCSettings.TurboModeButton)
-			{
-				case 0:
-					sprintf (options.value[1], "Default (Right Stick)"); break;
-				case 1:
-					sprintf (options.value[1], "A"); break;
-				case 2:
-					sprintf (options.value[1], "B"); break;
-				case 3:
-					sprintf (options.value[1], "X"); break;
-				case 4:
-					sprintf (options.value[1], "Y"); break;
-				case 5:
-					sprintf (options.value[1], "L"); break;
-				case 6:
-					sprintf (options.value[1], "R"); break;
-				case 7:
-					sprintf (options.value[1], "ZL"); break;
-				case 8:
-					sprintf (options.value[1], "ZR"); break;
-				case 9:
-					sprintf (options.value[1], "Z"); break;
-				case 10:
-					sprintf (options.value[1], "C"); break;
-				case 11:
-					sprintf (options.value[1], "1"); break;
-				case 12:
-					sprintf (options.value[1], "2"); break;
-				case 13:
-					sprintf (options.value[1], "Plus"); break;
-				case 14:
-					sprintf (options.value[1], "Minus"); break;
-			}
+			sprintf (options.value[1], "%s", GetLookupString(turboButtonNames, GCSettings.TurboModeButton, NUM_TURBO_BUTTONS));
 
-			switch(GCSettings.GamepadMenuToggle)
-			{
-				case 0:
-					sprintf (options.value[2], "Default (All Enabled)"); break;
-				case 1:
-					sprintf (options.value[2], "Home / Right Stick"); break;
-				case 2:
-					sprintf (options.value[2], "L+R+Start / 1+2+Plus"); break;
-			}
+			sprintf (options.value[2], "%s", GetLookupString(gamepadMenuToggleNames, GCSettings.GamepadMenuToggle, NUM_GAMEPAD_MENU_TOGGLES));
 
 			sprintf (options.value[3], "%s", GCSettings.MapABXYRightStick == 1 ? "On" : "Off");
 
@@ -3673,9 +3786,8 @@ static int MenuSettingsVideo()
 	sprintf(options.name[i++], "SuperFX Overclock");
 	options.length = i;
 	
-#ifdef HW_DOL
-	options.name[2][0] = 0; // disable hq2x on GameCube
-#endif
+// GameCube previously disabled filtering entirely. We now allow a limited set (e.g. TV Mode scanlines).
+// Leave option visible on all platforms.
 
 	for(i=0; i < options.length; i++)
 		options.value[i][0] = 0;
@@ -3746,6 +3858,17 @@ static int MenuSettingsVideo()
 				GCSettings.FilterMethod++;
 				if (GCSettings.FilterMethod >= NUM_FILTERS)
 					GCSettings.FilterMethod = 0;
+	#ifdef HW_DOL
+				// On GameCube we currently only expose 'None' and 'TV Mode' (scanlines)
+				while (GCSettings.FilterMethod != FILTER_NONE && GCSettings.FilterMethod != FILTER_TVMODE)
+				{
+					GCSettings.FilterMethod++;
+					if (GCSettings.FilterMethod >= NUM_FILTERS)
+						GCSettings.FilterMethod = 0;
+				}
+	#endif
+				CheckVideo = 1; // force video reconfiguration after filter change
+				SelectFilterMethod(); // update function pointer immediately
 				break;
 
 			case 3:
@@ -3817,65 +3940,25 @@ static int MenuSettingsVideo()
 		{
 			firstRun = false;
 
-			if (GCSettings.render == 0)
-				sprintf (options.value[0], "Original (240p)");
-			else if (GCSettings.render == 1)
-				sprintf (options.value[0], "Filtered");
-			else if (GCSettings.render == 2)
-				sprintf (options.value[0], "Unfiltered");
-			else if (GCSettings.render == 3)
-				sprintf (options.value[0], "Filtered (Sharp)");
-			else if (GCSettings.render == 4)
-				sprintf (options.value[0], "Filtered (Soft)");
+			sprintf (options.value[0], "%s", GetLookupString(renderModeNames, GCSettings.render, NUM_RENDER_MODES));
 
 			if(GCSettings.widescreen)
 				sprintf (options.value[1], "16:9 Correction");
 			else
 				sprintf (options.value[1], "Default");
-#ifdef HW_RVL
+			// Show filter name on both Wii and GameCube (GameCube will restrict selection set elsewhere)
 			sprintf (options.value[2], "%s", GetFilterName((RenderFilter)GCSettings.FilterMethod));
-#endif
 			sprintf (options.value[3], "%.2f%%, %.2f%%", GCSettings.zoomHor*100, GCSettings.zoomVert*100);
 			sprintf (options.value[4], "%d, %d", GCSettings.xshift, GCSettings.yshift);
 
-			switch(GCSettings.videomode)
-			{
-				case 0:
-					sprintf (options.value[5], "Automatic (Recommended)"); break;
-				case 1:
-					sprintf (options.value[5], "NTSC (480i)"); break;
-				case 2:
-					sprintf (options.value[5], "Progressive (480p)"); break;
-				case 3:
-					sprintf (options.value[5], "PAL (50Hz)"); break;
-				case 4:
-					sprintf (options.value[5], "PAL (60Hz)"); break;
-				case 5:
-					sprintf (options.value[5], "Progressive (576p)"); break;
-			}
+			sprintf (options.value[5], "%s", GetLookupString(videoModeNames, GCSettings.videomode, NUM_VIDEO_MODES));
 			sprintf (options.value[6], "%s", GCSettings.HiResolution == 1 ? "On" : "Off");
 			sprintf (options.value[7], "%s", GCSettings.SpriteLimit == 1 ? "On" : "Off");
 			sprintf (options.value[8], "%s", GCSettings.FrameSkip == 1 ? "On" : "Off");
 			sprintf (options.value[9], "%s", GCSettings.crosshair == 1 ? "On" : "Off");
 			sprintf (options.value[10], "%s", Settings.DisplayFrameRate ? "On" : "Off");
 			sprintf (options.value[11], "%s", Settings.DisplayTime ? "On" : "Off");
-			switch(GCSettings.sfxOverclock)
-			{
-				case 0:
-					sprintf (options.value[12], "Default"); break;
-				case 1:
-					sprintf (options.value[12], "20 MHz"); break;
-				case 2:
-					sprintf (options.value[12], "40 MHz"); break;
-				case 3:
-					sprintf (options.value[12], "60 MHz"); break;
-				case 4:
-					sprintf (options.value[12], "80 MHz"); break;
-				case 5:
-					sprintf (options.value[12], "100 MHz"); break;
-				case 6:
-					sprintf (options.value[12], "120 MHz"); break;
-			}
+			sprintf (options.value[12], "%s", GetLookupString(sfxOverclockNames, GCSettings.sfxOverclock, NUM_SFX_OVERCLOCK_OPTIONS));
 			optionBrowser.TriggerUpdate();
 		}
 
@@ -3979,19 +4062,7 @@ static int MenuSettingsAudio()
 		{
 			firstRun = false;
 			
-			switch(GCSettings.Interpolation)
-			{
-				case 0:
-					sprintf (options.value[0], "Gaussian (Accurate)"); break;
-				case 1:
-					sprintf (options.value[0], "Linear"); break;
-				case 2:
-					sprintf (options.value[0], "Cubic"); break;
-				case 3:
-					sprintf (options.value[0], "Sinc"); break;
-				case 4:
-					sprintf (options.value[0], "None"); break;
-			}
+			sprintf (options.value[0], "%s", GetLookupString(interpolationNames, GCSettings.Interpolation, NUM_INTERPOLATION_OPTIONS));
 
 			sprintf (options.value[1], "%s", GCSettings.MuteAudio ? "On" : "Off");
 
@@ -4371,6 +4442,14 @@ static int MenuSettingsFile()
 				GCSettings.SaveMethod++;
 			#endif
 
+			// don't allow GC Loader on GameCube (not supported in modern devkitPro)
+			#ifndef HW_RVL
+			if(GCSettings.LoadMethod == DEVICE_SD_GCLOADER)
+				GCSettings.LoadMethod++;
+			if(GCSettings.SaveMethod == DEVICE_SD_GCLOADER)
+				GCSettings.SaveMethod++;
+			#endif
+
 			// correct load/save methods out of bounds
 			if(GCSettings.LoadMethod > 8)
 				GCSettings.LoadMethod = 0;
@@ -4385,7 +4464,9 @@ static int MenuSettingsFile()
 			else if (GCSettings.LoadMethod == DEVICE_SD_SLOTA) sprintf (options.value[0],"SD Gecko Slot A");
 			else if (GCSettings.LoadMethod == DEVICE_SD_SLOTB) sprintf (options.value[0],"SD Gecko Slot B");
 			else if (GCSettings.LoadMethod == DEVICE_SD_PORT2) sprintf (options.value[0],"SD in SP2");
+			#ifdef HW_RVL
 			else if (GCSettings.LoadMethod == DEVICE_SD_GCLOADER) sprintf (options.value[0],"GC Loader");
+			#endif
 
 			if (GCSettings.SaveMethod == DEVICE_AUTO) sprintf (options.value[1],"Auto Detect");
 			else if (GCSettings.SaveMethod == DEVICE_SD) sprintf (options.value[1],"SD");
@@ -4394,7 +4475,9 @@ static int MenuSettingsFile()
 			else if (GCSettings.SaveMethod == DEVICE_SD_SLOTA) sprintf (options.value[1],"SD Gecko Slot A");
 			else if (GCSettings.SaveMethod == DEVICE_SD_SLOTB) sprintf (options.value[1],"SD Gecko Slot B");
 			else if (GCSettings.SaveMethod == DEVICE_SD_PORT2) sprintf (options.value[1],"SD in SP2");
+			#ifdef HW_RVL
 			else if (GCSettings.SaveMethod == DEVICE_SD_GCLOADER) sprintf (options.value[1],"GC Loader");
+			#endif
 
 			snprintf (options.value[2], 35, "%s", GCSettings.LoadFolder);
 			snprintf (options.value[3], 35, "%s", GCSettings.SaveFolder);
@@ -4619,18 +4702,7 @@ static int MenuSettingsMenu()
 				case LANG_SWEDISH:		sprintf(options.value[5], "Swedish"); break;
 			}
 			
-			switch(GCSettings.PreviewImage)
-			{
-				case 0:	
-					sprintf(options.value[6], "Screenshots");
-					break; 
-				case 1:	
-					sprintf(options.value[6], "Covers");
-					break; 
-				case 2:	
-					sprintf(options.value[6], "Artwork");
-					break; 
-			}
+			sprintf(options.value[6], "%s", GetLookupString(previewImageNames, GCSettings.PreviewImage, NUM_PREVIEW_IMAGE_OPTIONS));
 			
 			optionBrowser.TriggerUpdate();
 		}

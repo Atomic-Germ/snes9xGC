@@ -53,6 +53,41 @@ bool bsxBiosLoadFailed;
 
 extern bool isBSX();
 
+// Device priority order for auto-detection - replaces repetitive if-else chains
+#ifdef HW_RVL
+static const int loadDevicePriority[] = {
+	DEVICE_SD,
+	DEVICE_USB,
+	DEVICE_SD_GCLOADER,
+	DEVICE_DVD,
+	DEVICE_SMB
+};
+#else
+static const int loadDevicePriority[] = {
+	DEVICE_SD_SLOTA,
+	DEVICE_SD_SLOTB,
+	DEVICE_SD_PORT2,
+	DEVICE_DVD,
+	DEVICE_SMB
+};
+#endif
+
+#ifdef HW_RVL
+static const int saveDevicePriority[] = {
+	DEVICE_SD,
+	DEVICE_USB,
+	DEVICE_SD_GCLOADER,
+	DEVICE_SMB
+};
+#else
+static const int saveDevicePriority[] = {
+	DEVICE_SD_SLOTA,
+	DEVICE_SD_SLOTB,
+	DEVICE_SD_PORT2,
+	DEVICE_SMB
+};
+#endif
+
 /****************************************************************************
 * autoLoadMethod()
 * Auto-determines and sets the load device
@@ -63,23 +98,14 @@ int autoLoadMethod()
 	ShowAction ("Attempting to determine load device...");
 
 	int device = DEVICE_AUTO;
+	const int numDevices = sizeof(loadDevicePriority) / sizeof(loadDevicePriority[0]);
 
-	if(ChangeInterface(DEVICE_SD, SILENT))
-		device = DEVICE_SD;
-	else if(ChangeInterface(DEVICE_USB, SILENT))
-		device = DEVICE_USB;
-	else if(ChangeInterface(DEVICE_SD_SLOTA, SILENT))
-		device = DEVICE_SD_SLOTA;
-	else if(ChangeInterface(DEVICE_SD_SLOTB, SILENT))
-		device = DEVICE_SD_SLOTB;
-	else if(ChangeInterface(DEVICE_SD_PORT2, SILENT))
-		device = DEVICE_SD_PORT2;
-	else if(ChangeInterface(DEVICE_SD_GCLOADER, SILENT))
-		device = DEVICE_SD_GCLOADER;
-	else if(ChangeInterface(DEVICE_DVD, SILENT))
-		device = DEVICE_DVD;
-	else if(ChangeInterface(DEVICE_SMB, SILENT))
-		device = DEVICE_SMB;
+	for (int i = 0; i < numDevices; i++) {
+		if (ChangeInterface(loadDevicePriority[i], SILENT)) {
+			device = loadDevicePriority[i];
+			break;
+		}
+	}
 
 	if(GCSettings.LoadMethod == DEVICE_AUTO)
 		GCSettings.LoadMethod = device; // save device found for later use
@@ -98,22 +124,16 @@ int autoSaveMethod(bool silent)
 		ShowAction ("Attempting to determine save device...");
 
 	int device = DEVICE_AUTO;
+	const int numDevices = sizeof(saveDevicePriority) / sizeof(saveDevicePriority[0]);
 
-	if(ChangeInterface(DEVICE_SD, SILENT))
-		device = DEVICE_SD;
-	else if(ChangeInterface(DEVICE_USB, SILENT))
-		device = DEVICE_USB;
-	else if(ChangeInterface(DEVICE_SD_SLOTA, SILENT))
-		device = DEVICE_SD_SLOTA;
-	else if(ChangeInterface(DEVICE_SD_SLOTB, SILENT))
-		device = DEVICE_SD_SLOTB;
-	else if(ChangeInterface(DEVICE_SD_PORT2, SILENT))
-		device = DEVICE_SD_PORT2;
-	else if(ChangeInterface(DEVICE_SD_GCLOADER, SILENT))
-		device = DEVICE_SD_GCLOADER;
-	else if(ChangeInterface(DEVICE_SMB, SILENT))
-		device = DEVICE_SMB;
-	else if(!silent)
+	for (int i = 0; i < numDevices; i++) {
+		if (ChangeInterface(saveDevicePriority[i], SILENT)) {
+			device = saveDevicePriority[i];
+			break;
+		}
+	}
+
+	if (device == DEVICE_AUTO && !silent)
 		ErrorPrompt("Unable to locate a save device!");
 
 	if(GCSettings.SaveMethod == DEVICE_AUTO)
@@ -350,6 +370,26 @@ int FileSortCallback(const void *f1, const void *f2)
 	return strcasecmp(((BROWSERENTRY *)f1)->filename, ((BROWSERENTRY *)f2)->filename);
 }
 
+// Valid SNES ROM file extensions - replaces repetitive strcasecmp calls
+static const char* validRomExtensions[] = {
+	".bs",
+	".fig",
+	".sfc",
+	".smc",
+	".swc"
+};
+
+static bool IsValidExtension(const char* ext) {
+	if (!ext) return false;
+	
+	const int numExtensions = sizeof(validRomExtensions) / sizeof(validRomExtensions[0]);
+	for (int i = 0; i < numExtensions; i++) {
+		if (strcasecmp(ext, validRomExtensions[i]) == 0)
+			return true;
+	}
+	return false;
+}
+
 /****************************************************************************
  * IsValidROM
  *
@@ -379,17 +419,10 @@ static bool IsValidROM()
 					p = NULL;
 			}
 
-			if(p != NULL)
+			if(p != NULL && IsValidExtension(p))
 			{
-				if (strcasecmp(p, ".bs") == 0 ||
-					strcasecmp(p, ".fig") == 0 ||
-					strcasecmp(p, ".sfc") == 0 ||
-					strcasecmp(p, ".smc") == 0 ||
-					strcasecmp(p, ".swc") == 0)
-				{
-					if(zippedFilename) free(zippedFilename);
-					return true;
-				}
+				if(zippedFilename) free(zippedFilename);
+				return true;
 			}
 			if(zippedFilename) free(zippedFilename);
 		}

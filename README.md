@@ -22,6 +22,7 @@ Wii homebrew is WiiBrew (www.wiibrew.org).
  - [Importing and Exporting SRAM](#importing-and-exporting-sram)
  - [Update History (OLD)](#update-history-old)
  - [Credits](#credits)
+ - [Development & Testing](#development--testing)
  - [Links](#links)
 
 
@@ -61,6 +62,33 @@ Wii homebrew is WiiBrew (www.wiibrew.org).
 * Turbo Mode - up to 2x the normal speed
 * Zoom option to zoom in/out
 * Open Source!
+
+
+## PERFORMANCE NOTES
+
+### Compiler and Optimization
+- **GCC Version**: Updated to GCC 13.1.0 (devkitPPC release 45.2) for better GameCube performance
+- **Previous**: GCC 15.1.0 (devkitPPC release 47.1) - 4,476,032 bytes
+- **Current**: GCC 13.1.0 (devkitPPC release 45.2) - 4,075,904 bytes (~9% smaller binary)
+- **Optimization Level**: -O3 (highest optimization)
+- **Alternative Optimizations Tested**:
+  - `-Ofast`: Slightly smaller binary (~4KB reduction) but may have stability issues
+  - `-O2`: Significantly smaller binary (~358KB reduction) but potentially slower
+
+### devkitPro Version Considerations
+Recent devkitPro versions have reduced GameCube support:
+- `__io_gcode` (GCLoader) interface removed
+- Some GameCube-specific optimizations may be regressed
+
+**Solution**: Using devkitPro with GCC 13.1.0 (release 45.2) instead of GCC 15.1.0 (release 47.1) provides:
+- ~9% smaller binary size
+- Better GameCube compatibility
+- More stable PowerPC code generation
+
+### Performance Optimizations Implemented
+- AltiVec SIMD texture conversion for GameCube/Wii
+- Platform-specific device detection
+- Memory management optimizations
 
 
 ## UPDATE HISTORY
@@ -1108,6 +1136,73 @@ changes to the emulator settings again and save them.
                       libogc/devkitPPC                   shagkur & WinterMute
                       FreeTypeGX                              Armin Tamzarian
 
+
+## DEVELOPMENT & TESTING
+
+This project includes a comprehensive unit test suite to ensure code quality and prevent regressions.
+
+### Building
+
+#### Docker Build (Recommended)
+
+For the easiest build experience, use the provided Docker scripts:
+
+```bash
+# Build for both Wii and GameCube
+./docker-build.sh build all
+
+# For PGO optimization, see PGO_OPTIMIZATION.md
+./pgo-workflow.sh instrumented
+```
+
+See [`DOCKER_BUILD_README.md`](DOCKER_BUILD_README.md) for detailed Docker build instructions.
+
+#### Traditional Build
+
+Ensure devkitPPC is installed, then:
+
+```bash
+# Wii build
+make wii
+
+# GameCube build
+make gc
+```
+
+### Running Tests
+
+To build and run the unit tests:
+
+```bash
+cd tests
+make run
+```
+
+### Test Coverage
+
+The test suite covers:
+- Video mode selection and rendering logic
+- File operation utilities
+- Controller button mapping
+- Settings validation and preferences
+- Path manipulation functions
+
+### Continuous Integration
+
+GitHub Actions automatically:
+- Builds and runs unit tests on all pull requests
+- Performs static code analysis with cppcheck
+- Verifies Wii and GameCube builds compile
+
+For detailed testing documentation, see [`tests/README.md`](tests/README.md).
+
+### Contributing
+
+When contributing code:
+1. Add appropriate unit tests for new functionality
+2. Ensure all tests pass locally with `make run`
+3. Follow existing code style and conventions
+4. Verify CI checks pass on your pull request
 
 ## LINKS
 

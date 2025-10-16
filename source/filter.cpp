@@ -40,57 +40,65 @@ template<int GuiScale> void Render2xBR (uint8 *srcPtr, uint32 srcPitch, uint8 *d
 template<int GuiScale> void Render2xBRlv1 (uint8 *srcPtr, uint32 srcPitch, uint8 *dstPtr, uint32 dstPitch, int width, int height);
 template<int GuiScale> void RenderDDT (uint8 *srcPtr, uint32 srcPitch, uint8 *dstPtr, uint32 dstPitch, int width, int height);
 
+// Lookup table for filter names - replaces switch statement
+static const char* filterNames[] = {
+	"None",           // FILTER_NONE
+	"hq2x",           // FILTER_HQ2X
+	"hq2x Soft",      // FILTER_HQ2XS
+	"hq2x Bold",      // FILTER_HQ2XBOLD
+	"Scale2x",        // FILTER_SCALE2X
+	"TV Mode",        // FILTER_TVMODE
+	"2xBR",           // FILTER_2XBR
+	"2xBR-lv1",       // FILTER_2XBRLV1
+	"DDT"             // FILTER_DDT
+};
+
 const char* GetFilterName (RenderFilter filterID)
 {
-    switch(filterID)
-    {
-        default: return "Unknown";
-        case FILTER_NONE: return "None";
-        case FILTER_HQ2X: return "hq2x";
-        case FILTER_HQ2XS: return "hq2x Soft";
-        case FILTER_HQ2XBOLD: return "hq2x Bold";
-        case FILTER_SCALE2X: return "Scale2x";
-        case FILTER_TVMODE: return "TV Mode";
-        case FILTER_2XBR: return "2xBR";
-        case FILTER_2XBRLV1: return "2xBR-lv1";
-        case FILTER_DDT: return "DDT";
-    }
+	if (filterID >= 0 && filterID < NUM_FILTERS)
+		return filterNames[filterID];
+	return "Unknown";
 }
+
+// Lookup table for filter function pointers - replaces switch statement
+static const TFilterMethod filterMethods[] = {
+	0,                               // FILTER_NONE (no filter function)
+	RenderHQ2X<FILTER_HQ2X>,         // FILTER_HQ2X
+	RenderHQ2X<FILTER_HQ2XS>,        // FILTER_HQ2XS
+	RenderHQ2X<FILTER_HQ2XBOLD>,     // FILTER_HQ2XBOLD
+	RenderScale2X<FILTER_SCALE2X>,   // FILTER_SCALE2X
+	RenderTVMode<FILTER_TVMODE>,     // FILTER_TVMODE
+	Render2xBR<FILTER_2XBR>,         // FILTER_2XBR
+	Render2xBRlv1<FILTER_2XBRLV1>,   // FILTER_2XBRLV1
+	RenderDDT<FILTER_DDT>            // FILTER_DDT
+};
 
 // Return pointer to appropriate function
 static TFilterMethod FilterToMethod (RenderFilter filterID)
 {
-    switch(filterID)
-    {
-        case FILTER_HQ2X:       return RenderHQ2X<FILTER_HQ2X>;
-        case FILTER_HQ2XS:      return RenderHQ2X<FILTER_HQ2XS>;
-        case FILTER_HQ2XBOLD:   return RenderHQ2X<FILTER_HQ2XBOLD>;
-        case FILTER_SCALE2X:    return RenderScale2X<FILTER_SCALE2X>;
-        case FILTER_TVMODE:     return RenderTVMode<FILTER_TVMODE>;
-        case FILTER_2XBR:     return Render2xBR<FILTER_2XBR>;
-        case FILTER_2XBRLV1:     return Render2xBRlv1<FILTER_2XBRLV1>;
-        case FILTER_DDT:     return RenderDDT<FILTER_DDT>;
-        default: return 0;
-    }
+	if (filterID >= 0 && filterID < NUM_FILTERS)
+		return filterMethods[filterID];
+	return 0;
 }
+
+// Lookup table for filter scales - most filters are 2x except NONE
+static const int filterScales[] = {
+	1,  // FILTER_NONE
+	2,  // FILTER_HQ2X
+	2,  // FILTER_HQ2XS
+	2,  // FILTER_HQ2XBOLD
+	2,  // FILTER_SCALE2X
+	2,  // FILTER_TVMODE
+	2,  // FILTER_2XBR
+	2,  // FILTER_2XBRLV1
+	2   // FILTER_DDT
+};
 
 int GetFilterScale(RenderFilter filterID)
 {
-    switch(filterID)
-    {
-        case FILTER_NONE:
-        return 1;
-        default:
-        case FILTER_HQ2X:
-        case FILTER_HQ2XS:
-        case FILTER_HQ2XBOLD:
-        case FILTER_SCALE2X:
-        case FILTER_TVMODE:
-        case FILTER_2XBR:
-        case FILTER_2XBRLV1:
-        case FILTER_DDT:
-        return 2;
-    }
+	if (filterID >= 0 && filterID < NUM_FILTERS)
+		return filterScales[filterID];
+	return 1;  // Default scale
 }
 
 void SelectFilterMethod ()

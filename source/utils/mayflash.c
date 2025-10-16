@@ -190,6 +190,12 @@ u32 getButtonMappingMF105(const uint8_t *buf)
 }
 
 
+bool Mayflash_IsConnected()
+{
+	return deviceId != 0;
+}
+
+
 void Mayflash_ScanPads()
 {
 	if (deviceId == 0)
