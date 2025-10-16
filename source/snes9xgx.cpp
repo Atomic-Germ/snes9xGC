@@ -194,7 +194,7 @@ void ShutdownCB()
 {
 	ShutdownRequested = 1;
 }
-void ResetCB()
+void ResetCB(u32, void*)
 {
 	ResetRequested = 1;
 }
