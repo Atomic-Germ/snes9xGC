@@ -54,26 +54,39 @@ bool bsxBiosLoadFailed;
 extern bool isBSX();
 
 // Device priority order for auto-detection - replaces repetitive if-else chains
+#ifdef HW_RVL
 static const int loadDevicePriority[] = {
 	DEVICE_SD,
 	DEVICE_USB,
-	DEVICE_SD_SLOTA,
-	DEVICE_SD_SLOTB,
-	DEVICE_SD_PORT2,
 	DEVICE_SD_GCLOADER,
 	DEVICE_DVD,
 	DEVICE_SMB
 };
-
-static const int saveDevicePriority[] = {
-	DEVICE_SD,
-	DEVICE_USB,
+#else
+static const int loadDevicePriority[] = {
 	DEVICE_SD_SLOTA,
 	DEVICE_SD_SLOTB,
 	DEVICE_SD_PORT2,
+	DEVICE_DVD,
+	DEVICE_SMB
+};
+#endif
+
+#ifdef HW_RVL
+static const int saveDevicePriority[] = {
+	DEVICE_SD,
+	DEVICE_USB,
 	DEVICE_SD_GCLOADER,
 	DEVICE_SMB
 };
+#else
+static const int saveDevicePriority[] = {
+	DEVICE_SD_SLOTA,
+	DEVICE_SD_SLOTB,
+	DEVICE_SD_PORT2,
+	DEVICE_SMB
+};
+#endif
 
 /****************************************************************************
 * autoLoadMethod()

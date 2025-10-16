@@ -47,15 +47,15 @@ bool unmountRequired[9] = { false, false, false, false, false, false, false, fal
 bool isMounted[9] = { false, false, false, false, false, false, false, false, false };
 
 #ifdef HW_RVL
-	static DISC_INTERFACE* sd = &__io_wiisd;
-	static DISC_INTERFACE* usb = &__io_usbstorage;
-	static DISC_INTERFACE* dvd = &__io_wiidvd;
+	static const DISC_INTERFACE* sd = &__io_wiisd;
+	static const DISC_INTERFACE* usb = &__io_usbstorage;
+	static const DISC_INTERFACE* dvd = &__io_wiidvd;
 #else
-	static DISC_INTERFACE* carda = &__io_gcsda;
-	static DISC_INTERFACE* cardb = &__io_gcsdb;
-	static DISC_INTERFACE* port2 = &__io_gcsd2;
-	static DISC_INTERFACE* dvd = &__io_gcdvd;
-	static DISC_INTERFACE* gcloader = &__io_gcode;
+	static const DISC_INTERFACE* carda = &__io_gcsda;
+	static const DISC_INTERFACE* cardb = &__io_gcsdb;
+	static const DISC_INTERFACE* port2 = &__io_gcsd2;
+	static const DISC_INTERFACE* dvd = &__io_gcdvd;
+	// Note: __io_gcode (gcloader) is not available in current devkitPro
 #endif
 
 // folder parsing thread
@@ -75,7 +75,7 @@ struct DeviceMapping {
 	int device;
 	const char* name;
 	const char* name2;
-	DISC_INTERFACE** disc;
+	const DISC_INTERFACE** disc;
 };
 
 #ifdef HW_RVL
@@ -87,8 +87,8 @@ static DeviceMapping deviceMappings[] = {
 static DeviceMapping deviceMappings[] = {
 	{DEVICE_SD_SLOTA, "carda", "carda:", &carda},
 	{DEVICE_SD_SLOTB, "cardb", "cardb:", &cardb},
-	{DEVICE_SD_PORT2, "port2", "port2:", &port2},
-	{DEVICE_SD_GCLOADER, "gcloader", "gcloader:", &gcloader}
+	{DEVICE_SD_PORT2, "port2", "port2:", &port2}
+	// Note: gcloader removed due to __io_gcode not available in current devkitPro
 };
 #endif
 
@@ -160,7 +160,7 @@ devicecallback (void *arg)
 	{
 		if(isMounted[DEVICE_SD])
 		{
-			if(!sd->isInserted(sd)) // check if the device was removed
+			if(!sd->isInserted()) // check if the device was removed
 			{
 				unmountRequired[DEVICE_SD] = true;
 				isMounted[DEVICE_SD] = false;
@@ -169,7 +169,7 @@ devicecallback (void *arg)
 
 		if(isMounted[DEVICE_USB])
 		{
-			if(!usb->isInserted(usb)) // check if the device was removed
+			if(!usb->isInserted()) // check if the device was removed
 			{
 				unmountRequired[DEVICE_USB] = true;
 				isMounted[DEVICE_USB] = false;
@@ -178,7 +178,7 @@ devicecallback (void *arg)
 
 		if(isMounted[DEVICE_DVD])
 		{
-			if(!dvd->isInserted(dvd)) // check if the device was removed
+			if(!dvd->isInserted()) // check if the device was removed
 			{
 				unmountRequired[DEVICE_DVD] = true;
 				isMounted[DEVICE_DVD] = false;
@@ -235,11 +235,11 @@ void UnmountAllFAT()
 #ifdef HW_RVL
 	fatUnmount("sd:");
 	fatUnmount("usb:");
+	fatUnmount("gcloader:");
 #else
 	fatUnmount("port2:");
 	fatUnmount("carda:");
 	fatUnmount("cardb:");
-	fatUnmount("gcloader:");
 #endif
 }
 
@@ -260,19 +260,19 @@ static bool MountFAT(int device, int silent)
 	if (!mapping)
 		return false; // unknown device
 
-	DISC_INTERFACE* disc = *mapping->disc;
+	const DISC_INTERFACE* disc = *mapping->disc;
 
 	if(unmountRequired[device])
 	{
 		unmountRequired[device] = false;
 		fatUnmount(mapping->name2);
-		disc->shutdown(disc);
+		disc->shutdown();
 		isMounted[device] = false;
 	}
 
 	while(retry)
 	{
-		if(disc->startup(disc) && fatMountSimple(mapping->name, disc))
+		if(disc->startup() && fatMountSimple(mapping->name, disc))
 			mounted = true;
 
 		if(mounted || silent)
@@ -326,7 +326,7 @@ bool MountDVD(bool silent)
 
 		if (dvdstatus == DVD_STATE_NO_DISK)
 #else
-		if(!dvd->isInserted(dvd))
+		if(!dvd->isInserted())
 #endif
 		{
 			if(silent)
@@ -392,11 +392,13 @@ bool FindDevice(char * filepath, int * device)
 		*device = DEVICE_DVD;
 		return true;
 	}
+#ifdef HW_RVL
 	else if(strncmp(filepath, "gcloader:", 9) == 0)
 	{
 		*device = DEVICE_SD_GCLOADER;
 		return true;
 	}
+#endif
 	return false;
 }
 
@@ -433,7 +435,9 @@ bool ChangeInterface(int device, bool silent)
 		case DEVICE_SD_SLOTA:
 		case DEVICE_SD_SLOTB:
 		case DEVICE_SD_PORT2:
+#ifdef HW_RVL
 		case DEVICE_SD_GCLOADER:
+#endif
 #endif
 			mounted = MountFAT(device, silent);
 			break;

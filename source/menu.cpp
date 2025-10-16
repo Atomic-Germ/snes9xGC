@@ -4442,6 +4442,14 @@ static int MenuSettingsFile()
 				GCSettings.SaveMethod++;
 			#endif
 
+			// don't allow GC Loader on GameCube (not supported in modern devkitPro)
+			#ifndef HW_RVL
+			if(GCSettings.LoadMethod == DEVICE_SD_GCLOADER)
+				GCSettings.LoadMethod++;
+			if(GCSettings.SaveMethod == DEVICE_SD_GCLOADER)
+				GCSettings.SaveMethod++;
+			#endif
+
 			// correct load/save methods out of bounds
 			if(GCSettings.LoadMethod > 8)
 				GCSettings.LoadMethod = 0;
@@ -4456,7 +4464,9 @@ static int MenuSettingsFile()
 			else if (GCSettings.LoadMethod == DEVICE_SD_SLOTA) sprintf (options.value[0],"SD Gecko Slot A");
 			else if (GCSettings.LoadMethod == DEVICE_SD_SLOTB) sprintf (options.value[0],"SD Gecko Slot B");
 			else if (GCSettings.LoadMethod == DEVICE_SD_PORT2) sprintf (options.value[0],"SD in SP2");
+			#ifdef HW_RVL
 			else if (GCSettings.LoadMethod == DEVICE_SD_GCLOADER) sprintf (options.value[0],"GC Loader");
+			#endif
 
 			if (GCSettings.SaveMethod == DEVICE_AUTO) sprintf (options.value[1],"Auto Detect");
 			else if (GCSettings.SaveMethod == DEVICE_SD) sprintf (options.value[1],"SD");
@@ -4465,7 +4475,9 @@ static int MenuSettingsFile()
 			else if (GCSettings.SaveMethod == DEVICE_SD_SLOTA) sprintf (options.value[1],"SD Gecko Slot A");
 			else if (GCSettings.SaveMethod == DEVICE_SD_SLOTB) sprintf (options.value[1],"SD Gecko Slot B");
 			else if (GCSettings.SaveMethod == DEVICE_SD_PORT2) sprintf (options.value[1],"SD in SP2");
+			#ifdef HW_RVL
 			else if (GCSettings.SaveMethod == DEVICE_SD_GCLOADER) sprintf (options.value[1],"GC Loader");
+			#endif
 
 			snprintf (options.value[2], 35, "%s", GCSettings.LoadFolder);
 			snprintf (options.value[3], 35, "%s", GCSettings.SaveFolder);

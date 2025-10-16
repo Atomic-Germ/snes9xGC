@@ -1,4 +1,4 @@
-.PHONY = all wii gc wii-clean gc-clean wii-run gc-run
+.PHONY: all wii gc wii-clean gc-clean wii-run gc-run wii-pgo-generate wii-pgo-optimize gc-pgo-generate gc-pgo-optimize pgo-clean
 
 all: wii gc
 
@@ -23,3 +23,20 @@ gc-clean:
 
 gc-run: gc
 	$(MAKE) -f Makefile.gc run
+
+# PGO targets
+wii-pgo-generate:
+	$(MAKE) -f Makefile.wii pgo-generate
+
+wii-pgo-optimize:
+	$(MAKE) -f Makefile.wii pgo-optimize
+
+gc-pgo-generate:
+	$(MAKE) -f Makefile.gc pgo-generate
+
+gc-pgo-optimize:
+	$(MAKE) -f Makefile.gc pgo-optimize
+
+pgo-clean:
+	$(MAKE) -f Makefile.wii pgo-clean
+	$(MAKE) -f Makefile.gc pgo-clean
